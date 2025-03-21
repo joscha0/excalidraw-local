@@ -36,6 +36,7 @@ export function ExcalidrawWrapper() {
   return (
     <div className="h-full w-full">
       <Excalidraw
+        key={currentFile.path}
         initialData={{
           elements: elements,
         }}
