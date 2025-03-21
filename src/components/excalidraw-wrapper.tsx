@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { useStore } from "@/lib/store";
+import "@excalidraw/excalidraw/index.css";
 
 export function ExcalidrawWrapper() {
   const { elements, currentFile, updateElements } = useStore();
@@ -37,9 +38,6 @@ export function ExcalidrawWrapper() {
       <Excalidraw
         initialData={{
           elements: elements,
-          appState: {
-            viewBackgroundColor: "#ffffff",
-          },
         }}
         onChange={onChangeHandler}
         UIOptions={{

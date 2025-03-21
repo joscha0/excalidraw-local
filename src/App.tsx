@@ -28,7 +28,7 @@ function App() {
     <div className="flex h-screen w-screen overflow-hidden">
       <SidebarProvider>
         <AppSidebar />
-        <main>
+        <main className="flex flex-col w-full h-full">
           <SidebarTrigger />
           <ExcalidrawWrapper />
         </main>
