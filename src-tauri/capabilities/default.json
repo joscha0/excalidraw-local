@@ -8,6 +8,20 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "fs:default"
+    "fs:default",
+    "fs:allow-mkdir",
+    "fs:allow-read-dir",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [{
+        "path": "$APPDATA"
+      }, {
+        "path": "$APPDATA/**"
+      }]
+    }
   ]
 }
