@@ -4,6 +4,7 @@ import {
   readDir,
   readTextFile,
   writeTextFile,
+  mkdir,
 } from "@tauri-apps/plugin-fs";
 import { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
@@ -26,6 +27,8 @@ interface AppState {
   updateElements: (elements: ExcalidrawElement[]) => Promise<void>;
 }
 
+const directoryName = "excalidraw-local";
+
 export const useStore = create<AppState>((set, get) => ({
   files: [],
   currentFile: null,
@@ -35,6 +38,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   initialize: async () => {
     try {
+      try {
+        await mkdir(directoryName, {
+          baseDir: BaseDirectory.AppData,
+        });
+      } catch (error) {
+        // Directory might already exist, continue
+        console.log("Directory might already exist:", error);
+      }
       set({ appReady: true });
 
       await get().loadFiles();
@@ -45,16 +56,18 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadFiles: async () => {
     try {
-      const entries = await readDir("excalidraw", {
-        baseDir: BaseDirectory.AppLocalData,
+      const entries = await readDir(directoryName, {
+        baseDir: BaseDirectory.AppData,
       });
 
       const files: FileInfo[] = entries
         .filter((entry) => entry.name?.endsWith(".excalidraw"))
         .map((entry) => ({
           name: entry.name || "",
-          path: BaseDirectory.AppLocalData + "/excalidraw/" + entry.name,
+          path: BaseDirectory.AppData + "/" + directoryName + "/" + entry.name,
         }));
+
+      console.log("files", files);
 
       set({ files });
     } catch (error) {
@@ -67,10 +80,12 @@ export const useStore = create<AppState>((set, get) => ({
       const fileName = name.endsWith(".excalidraw")
         ? name
         : `${name}.excalidraw`;
-      const filePath = BaseDirectory.AppLocalData + "/excalidraw/" + fileName;
+      const filePath = `${directoryName}/${fileName}`;
 
       // Create empty file with default content
-      await writeTextFile(filePath, JSON.stringify([]));
+      await writeTextFile(filePath, JSON.stringify([]), {
+        baseDir: BaseDirectory.AppData,
+      });
 
       const newFile = { name: fileName, path: filePath };
 
@@ -87,7 +102,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCurrentFile: async (file: FileInfo) => {
     try {
-      const fileContent = await readTextFile(file.path);
+      const fileContent = await readTextFile(file.path, {
+        baseDir: BaseDirectory.AppData,
+      });
       const elements = JSON.parse(fileContent) as ExcalidrawElement[];
       set({ currentFile: file, elements });
     } catch (error) {
@@ -99,7 +116,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const { currentFile } = get();
       if (currentFile) {
-        await writeTextFile(currentFile.path, JSON.stringify(elements));
+        await writeTextFile(currentFile.path, JSON.stringify(elements), {
+          baseDir: BaseDirectory.AppData,
+        });
         set({ elements });
       }
     } catch (error) {
