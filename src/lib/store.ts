@@ -64,7 +64,7 @@ export const useStore = create<AppState>((set, get) => ({
         .filter((entry) => entry.name?.endsWith(".excalidraw"))
         .map((entry) => ({
           name: entry.name || "",
-          path: BaseDirectory.AppData + "/" + directoryName + "/" + entry.name,
+          path: `${directoryName}/${entry.name}`,
         }));
 
       console.log("files", files);
