@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { FileText, PlusCircle } from "lucide-react";
 
 import {
   Sidebar,
@@ -10,54 +10,85 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
-// Menu items.
-const items = [
-  {
-    title: "Home",
-    url: "#",
-    icon: Home,
-  },
-  {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
-  },
-  {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
-];
+import { useStore } from "@/lib/store";
+import { useState } from "react";
+import { Button } from "./ui/button";
 
 export function AppSidebar() {
+  const { files, currentFile, createNewFile, setCurrentFile } = useStore();
+  const [newFileName, setNewFileName] = useState<string>("");
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+
+  const handleCreateFile = () => {
+    if (!isCreating) {
+      setIsCreating(true);
+      return;
+    }
+
+    if (newFileName.trim()) {
+      createNewFile(newFileName);
+      setNewFileName("");
+      setIsCreating(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleCreateFile();
+    } else if (e.key === "Escape") {
+      setIsCreating(false);
+      setNewFileName("");
+    }
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>Excalidraw Local</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
+              <Button className="w-full mb-4" onClick={handleCreateFile}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {isCreating ? "Confirm Create" : "New Drawing"}
+              </Button>
+
+              {isCreating && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="drawing-name.excalidraw"
+                    className="w-full p-2 rounded border"
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {files.map((file) => (
+                <SidebarMenuItem key={file.path}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
+                    <Button
+                      variant={
+                        currentFile?.path === file.path ? "secondary" : "ghost"
+                      }
+                      className="w-full justify-start mb-1 font-normal"
+                      onClick={() => setCurrentFile(file)}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      {file.name}
+                    </Button>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {files.length === 0 && (
+                <p className="text-sm text-muted-foreground p-4 text-center">
+                  No drawings yet. Create your first one!
+                </p>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
