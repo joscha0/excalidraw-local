@@ -95,17 +95,6 @@ export function AppSidebar() {
 
           <SidebarGroupContent>
             <SidebarMenu>
-              {currentFile && (
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setHistoryOpen(true)}
-                  >
-                    View File History
-                  </Button>
-                </div>
-              )}
-
               <FileHistory
                 open={historyOpen}
                 onClose={() => setHistoryOpen(false)}
@@ -147,6 +136,16 @@ export function AppSidebar() {
                       {file.name.replace(".excalidraw", "")}
                     </Button>
                   </SidebarMenuButton>
+                  {currentFile?.path === file.path && (
+                    <div className="flex justify-end w-full mt-1 mb-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setHistoryOpen(true)}
+                      >
+                        View File History
+                      </Button>
+                    </div>
+                  )}
                 </SidebarMenuItem>
               ))}
 
