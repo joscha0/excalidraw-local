@@ -58,7 +58,7 @@ export const useStore = create<AppState>((set, get) => ({
   elements: [],
   appReady: false,
   basePath: "",
-  theme: "system",
+  theme: "light",
   pendingChanges: false,
   lastCommitTime: Date.now(),
   setTheme: (theme) => set({ theme }),
