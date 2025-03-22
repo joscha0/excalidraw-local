@@ -1,4 +1,14 @@
-import { FileText, Moon, PlusCircle, Sun, Edit2, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Moon,
+  PlusCircle,
+  Sun,
+  Edit2,
+  Trash2,
+  Folder,
+  FolderPlus,
+  Move,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -26,6 +36,8 @@ export function AppSidebar() {
     toggleTheme,
     renameFile,
     deleteFile,
+    createFolder,
+    moveFile,
   } = useStore();
   const [newFileName, setNewFileName] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
@@ -35,6 +47,11 @@ export function AppSidebar() {
   const [renameValue, setRenameValue] = useState<string>("");
   const [renameError, setRenameError] = useState<string | null>(null);
   const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
+  const [folderName, setFolderName] = useState<string>("");
+  const [moveDialogOpen, setMoveDialogOpen] = useState<boolean>(false);
+  const [fileToMove, setFileToMove] = useState<FileInfo | null>(null);
+  const [targetFolder, setTargetFolder] = useState<FileInfo | null>(null);
 
   const handleCreateFile = () => {
     if (!isCreating) {
@@ -114,6 +131,212 @@ export function AppSidebar() {
     }
   };
 
+  const handleCreateFolder = () => {
+    if (!isCreatingFolder) {
+      setIsCreatingFolder(true);
+      return;
+    }
+
+    if (folderName.trim()) {
+      // Check if a folder with this name already exists
+      const folderExists = files.some(
+        (file) =>
+          file.isFolder && file.name.toLowerCase() === folderName.toLowerCase()
+      );
+
+      if (folderExists) {
+        setFileError(`A folder named "${folderName}" already exists`);
+        return;
+      }
+      createFolder(folderName);
+      setFolderName("");
+      setIsCreatingFolder(false);
+      setFileError(null);
+    }
+  };
+
+  const handleFolderKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleCreateFolder();
+    } else if (e.key === "Escape") {
+      setIsCreatingFolder(false);
+      setFolderName("");
+    }
+  };
+
+  const handleMoveFile = (file: FileInfo) => {
+    setFileToMove(file);
+    setMoveDialogOpen(true);
+  };
+
+  const confirmMoveFile = async () => {
+    if (!fileToMove) return;
+
+    try {
+      await moveFile(fileToMove, targetFolder?.path || null);
+      setFileToMove(null);
+      setTargetFolder(null);
+      setMoveDialogOpen(false);
+    } catch (error) {
+      console.error("Error moving file:", error);
+    }
+  };
+
+  // Function to render files and folders recursively
+  const renderFileTree = (parentPath: string | null = null) => {
+    // Get files/folders at this level
+    const items = files.filter((file) => file.parentPath === parentPath);
+
+    // Sort folders first, then files
+    const sortedItems = [
+      ...items.filter((item) => item.isFolder),
+      ...items.filter((item) => !item.isFolder),
+    ];
+
+    return sortedItems.map((item) => (
+      <SidebarMenuItem
+        key={item.path}
+        className={item.isFolder ? "ml-0" : "ml-4"}
+      >
+        {fileToRename?.path === item.path ? (
+          <div className="mb-4">
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => {
+                setRenameValue(e.target.value);
+                setRenameError(null);
+              }}
+              onKeyDown={handleRenameKeyDown}
+              placeholder={item.isFolder ? "folder-name" : "drawing-name"}
+              className="w-full p-2 rounded border"
+              autoFocus
+            />
+            {renameError && (
+              <p className="text-sm text-red-500 mt-1">{renameError}</p>
+            )}
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFileToRename(null);
+                  setRenameError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button variant="default" size="sm" onClick={handleRename}>
+                Rename
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex w-full items-center">
+              <SidebarMenuButton asChild>
+                <Button
+                  variant={
+                    !item.isFolder && currentFile?.path === item.path
+                      ? "secondary"
+                      : "ghost"
+                  }
+                  className="flex-1 justify-start mb-1 font-normal"
+                  onClick={() => {
+                    if (!item.isFolder) {
+                      setCurrentFile(item);
+                    }
+                    // Could add folder expansion logic here
+                  }}
+                >
+                  {item.isFolder ? (
+                    <Folder className="mr-2 h-4 w-4" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  {item.isFolder
+                    ? item.name
+                    : item.name.replace(".excalidraw", "")}
+                </Button>
+              </SidebarMenuButton>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleStartRename(item)}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+
+              {!item.isFolder && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleMoveFile(item)}
+                >
+                  <Move className="h-4 w-4" />
+                </Button>
+              )}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setFileToDelete(item)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {!item.isFolder && currentFile?.path === item.path && (
+              <div className="flex justify-end w-full mt-1 mb-2">
+                <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+                  View File History
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {fileToDelete?.path === item.path && (
+          <div className="mt-1 mb-3 p-3 bg-destructive/10 rounded-md">
+            <p className="text-sm mb-2">
+              Are you sure you want to delete "
+              {item.isFolder ? item.name : item.name.replace(".excalidraw", "")}
+              "?
+              {item.isFolder && " This will delete all files inside."}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFileToDelete(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDelete(item)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Render subfolders and files recursively */}
+        {item.isFolder && (
+          <div className="pl-4 mt-1">
+            <SidebarMenu>{renderFileTree(item.path)}</SidebarMenu>
+          </div>
+        )}
+      </SidebarMenuItem>
+    ));
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -143,10 +366,12 @@ export function AppSidebar() {
                 onClose={() => setHistoryOpen(false)}
               />
 
-              <Button className="w-full mb-4" onClick={handleCreateFile}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {isCreating ? "Confirm Create" : "New Drawing"}
-              </Button>
+              <div className="flex mb-2">
+                <Button className="flex-1" onClick={handleCreateFile}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  {isCreating ? "Create File" : "New Drawing"}
+                </Button>
+              </div>
 
               {isCreating && (
                 <div className="mb-4">
@@ -165,120 +390,92 @@ export function AppSidebar() {
                 </div>
               )}
 
-              {files.map((file) => (
-                <SidebarMenuItem key={file.path}>
-                  {fileToRename?.path === file.path ? (
-                    <div className="mb-4">
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => {
-                          setRenameValue(e.target.value);
-                          setRenameError(null);
-                        }}
-                        onKeyDown={handleRenameKeyDown}
-                        placeholder="drawing-name"
-                        className="w-full p-2 rounded border"
-                        autoFocus
-                      />
-                      {renameError && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {renameError}
-                        </p>
-                      )}
-                      <div className="flex justify-end gap-2 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setFileToRename(null);
-                            setRenameError(null);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleRename}
-                        >
-                          Rename
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex w-full items-center">
-                        <SidebarMenuButton asChild>
-                          <Button
-                            variant={
-                              currentFile?.path === file.path
-                                ? "secondary"
-                                : "ghost"
-                            }
-                            className="flex-1 justify-start mb-1 font-normal"
-                            onClick={() => setCurrentFile(file)}
-                          >
-                            <FileText className="mr-2 h-4 w-4" />
-                            {file.name.replace(".excalidraw", "")}
-                          </Button>
-                        </SidebarMenuButton>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleStartRename(file)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setFileToDelete(file)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      {currentFile?.path === file.path && (
-                        <div className="flex justify-end w-full mt-1 mb-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => setHistoryOpen(true)}
-                          >
-                            View File History
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
+              <div className="flex mb-2">
+                <Button className="flex-1" onClick={handleCreateFolder}>
+                  <FolderPlus className="mr-2 h-4 w-4" />
+                  {isCreatingFolder ? "Create Folder" : "New Folder"}
+                </Button>
+              </div>
 
-                  {fileToDelete?.path === file.path && (
-                    <div className="mt-1 mb-3 p-3 bg-destructive/10 rounded-md">
-                      <p className="text-sm mb-2">
-                        Are you sure you want to delete "
-                        {file.name.replace(".excalidraw", "")}"?
-                      </p>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setFileToDelete(null)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(file)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
+              {isCreatingFolder && (
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    value={folderName}
+                    onChange={(e) => {
+                      setFolderName(e.target.value);
+                      setFileError(null);
+                    }}
+                    onKeyDown={handleFolderKeyDown}
+                    placeholder="folder-name"
+                    className="w-full p-2 rounded border"
+                    autoFocus
+                  />
+                  {fileError && (
+                    <p className="text-sm text-red-500 mt-1">{fileError}</p>
                   )}
-                </SidebarMenuItem>
-              ))}
+                </div>
+              )}
+
+              {/* Render the file tree */}
+              {renderFileTree()}
+
+              {moveDialogOpen && fileToMove && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-background p-6 rounded-lg w-80">
+                    <h3 className="text-lg font-semibold mb-4">Move File</h3>
+                    <p className="mb-2">
+                      Move "{fileToMove.name.replace(".excalidraw", "")}" to:
+                    </p>
+
+                    <div className="max-h-60 overflow-y-auto mb-4 border rounded p-2">
+                      <div
+                        className="p-2 hover:bg-muted rounded cursor-pointer"
+                        onClick={() => setTargetFolder(null)}
+                      >
+                        Root folder
+                      </div>
+                      {files
+                        .filter((file) => file.isFolder)
+                        .map((folder) => (
+                          <div
+                            key={folder.path}
+                            className={`p-2 hover:bg-muted rounded cursor-pointer ${
+                              targetFolder?.path === folder.path
+                                ? "bg-muted"
+                                : ""
+                            }`}
+                            onClick={() => setTargetFolder(folder)}
+                          >
+                            <Folder className="h-4 w-4 inline mr-2" />
+                            {folder.name}
+                          </div>
+                        ))}
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setMoveDialogOpen(false);
+                          setFileToMove(null);
+                          setTargetFolder(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={confirmMoveFile}
+                      >
+                        Move
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {files.length === 0 && (
                 <p className="text-sm text-muted-foreground p-4 text-center">

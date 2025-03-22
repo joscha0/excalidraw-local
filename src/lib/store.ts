@@ -14,6 +14,8 @@ import { invoke } from "@tauri-apps/api/core";
 export interface FileInfo {
   name: string;
   path: string;
+  isFolder: boolean;
+  parentPath: string | null;
 }
 
 export type Theme = "light" | "dark" | "system";
@@ -48,6 +50,8 @@ interface AppState {
   restoreVersion: (commitId: string) => Promise<void>;
   renameFile: (file: FileInfo, newName: string) => Promise<void>;
   deleteFile: (file: FileInfo) => Promise<void>;
+  createFolder: (name: string, parentPath?: string) => Promise<void>;
+  moveFile: (file: FileInfo, targetFolderPath: string | null) => Promise<void>;
 }
 
 const directoryName = "excalidraw-local";
@@ -94,34 +98,138 @@ export const useStore = create<AppState>((set, get) => ({
         baseDir: BaseDirectory.AppData,
       });
 
-      const files: FileInfo[] = entries
-        .filter((entry) => entry.name?.endsWith(".excalidraw"))
-        .map((entry) => ({
-          name: entry.name || "",
-          path: `${directoryName}/${entry.name}`,
-        }));
+      const files: FileInfo[] = [];
+      const folders: FileInfo[] = [];
 
-      console.log("files", files);
+      // Process entries to build folder structure
+      entries.forEach((entry) => {
+        // Use entry.name for the path elements to construct the full path
+        const fullPath = entry.name || "";
+        const relativePath = fullPath.split(`${directoryName}/`)[1] || fullPath;
+        const pathParts = relativePath.split("/");
+        const parentPath =
+          pathParts.length > 1
+            ? `${directoryName}/${pathParts.slice(0, -1).join("/")}`
+            : null;
 
-      set({ files });
+        if (entry.isDirectory) {
+          // This is a folder
+          folders.push({
+            name: entry.name || "",
+            path: `${directoryName}/${relativePath}`,
+            isFolder: true,
+            parentPath,
+          });
+        } else if (entry.name?.endsWith(".excalidraw")) {
+          // This is a file
+          files.push({
+            name: entry.name || "",
+            path: `${directoryName}/${relativePath}`,
+            isFolder: false,
+            parentPath,
+          });
+        }
+      });
+
+      // Combine folders and files, with folders first
+      set({ files: [...folders, ...files] });
     } catch (error) {
       console.error("Failed to load files:", error);
     }
   },
 
-  createNewFile: async (name: string) => {
+  createFolder: async (name: string, parentPath?: string) => {
+    try {
+      const folderPath = parentPath
+        ? `${parentPath}/${name}`
+        : `${directoryName}/${name}`;
+
+      await mkdir(folderPath, {
+        baseDir: BaseDirectory.AppData,
+        recursive: true,
+      });
+
+      const newFolder: FileInfo = {
+        name,
+        path: folderPath,
+        isFolder: true,
+        parentPath: parentPath || null,
+      };
+
+      // Update files list with the new folder
+      set((state) => ({
+        files: [...state.files, newFolder],
+      }));
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+    }
+  },
+
+  moveFile: async (file: FileInfo, targetFolderPath: string | null) => {
+    try {
+      const fileName = file.name;
+      const sourcePath = file.path;
+
+      // If targetFolderPath is null, we're moving to the root
+      const destinationPath = targetFolderPath
+        ? `${targetFolderPath}/${fileName}`
+        : `${directoryName}/${fileName}`;
+
+      // Move the file
+      await rename(sourcePath, destinationPath, {
+        oldPathBaseDir: BaseDirectory.AppData,
+        newPathBaseDir: BaseDirectory.AppData,
+      });
+
+      // Update file information
+      const updatedFile: FileInfo = {
+        ...file,
+        path: destinationPath,
+        parentPath: targetFolderPath,
+      };
+
+      // Update state
+      set((state) => ({
+        files: state.files.map((f) =>
+          f.path === sourcePath ? updatedFile : f
+        ),
+        currentFile:
+          state.currentFile?.path === sourcePath
+            ? updatedFile
+            : state.currentFile,
+      }));
+
+      // Commit the move action
+      await get().commitChanges(
+        `Moved ${file.name} to ${targetFolderPath || "root"}`
+      );
+    } catch (error) {
+      console.error("Failed to move file:", error);
+      throw error;
+    }
+  },
+
+  createNewFile: async (name: string, parentPath?: string) => {
     try {
       const fileName = name.endsWith(".excalidraw")
         ? name
         : `${name}.excalidraw`;
-      const filePath = `${directoryName}/${fileName}`;
+
+      const filePath = parentPath
+        ? `${parentPath}/${fileName}`
+        : `${directoryName}/${fileName}`;
 
       // Create empty file with default content
       await writeTextFile(filePath, JSON.stringify([]), {
         baseDir: BaseDirectory.AppData,
       });
 
-      const newFile = { name: fileName, path: filePath };
+      const newFile: FileInfo = {
+        name: fileName,
+        path: filePath,
+        isFolder: false,
+        parentPath: parentPath || null,
+      };
 
       // Update files list and set as current
       set((state) => ({
@@ -257,7 +365,12 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       // Update state
-      const newFile = { name: fileName, path: newPath };
+      const newFile: FileInfo = {
+        name: fileName,
+        path: newPath,
+        isFolder: file.isFolder,
+        parentPath: file.parentPath,
+      };
       set((state) => ({
         files: state.files.map((f) => (f.path === file.path ? newFile : f)),
         currentFile:
@@ -276,34 +389,53 @@ export const useStore = create<AppState>((set, get) => ({
 
   deleteFile: async (file: FileInfo) => {
     try {
-      // Delete the file
-      await remove(file.path, { baseDir: BaseDirectory.AppData });
+      // For folders, we need to recursively delete all contents
+      if (file.isFolder) {
+        await remove(file.path, {
+          baseDir: BaseDirectory.AppData,
+          recursive: true,
+        });
+      } else {
+        // Delete a single file
+        await remove(file.path, { baseDir: BaseDirectory.AppData });
+      }
 
       // Update state
       const { currentFile, files } = get();
-      const newFiles = files.filter((f) => f.path !== file.path);
 
+      // Get all files/folders that should be removed (the target and all children)
+      const pathsToRemove = file.isFolder
+        ? [
+            file.path,
+            ...files
+              .filter((f) => f.path.startsWith(`${file.path}/`))
+              .map((f) => f.path),
+          ]
+        : [file.path];
+
+      const newFiles = files.filter((f) => !pathsToRemove.includes(f.path));
+
+      // Update state including handling the current file
       set({
         files: newFiles,
-        currentFile:
-          currentFile?.path === file.path
-            ? newFiles.length > 0
-              ? newFiles[0]
-              : null
-            : currentFile,
-        elements:
-          currentFile?.path === file.path
-            ? newFiles.length > 0
-              ? []
-              : []
-            : get().elements,
+        currentFile: pathsToRemove.includes(currentFile?.path || "")
+          ? newFiles.find((f) => !f.isFolder) || null
+          : currentFile,
+        elements: pathsToRemove.includes(currentFile?.path || "")
+          ? []
+          : get().elements,
       });
 
-      await get().commitChanges(`Deleted file ${file.name}`);
+      await get().commitChanges(
+        `Deleted ${file.isFolder ? "folder" : "file"} ${file.name}`
+      );
 
       // If we selected a new current file, load it
-      if (currentFile?.path === file.path && newFiles.length > 0) {
-        await get().setCurrentFile(newFiles[0]);
+      if (
+        pathsToRemove.includes(currentFile?.path || "") &&
+        newFiles.some((f) => !f.isFolder)
+      ) {
+        await get().setCurrentFile(newFiles.find((f) => !f.isFolder)!);
       }
     } catch (error) {
       console.error("Failed to delete file:", error);
