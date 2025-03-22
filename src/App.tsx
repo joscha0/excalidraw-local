@@ -5,11 +5,17 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ExcalidrawWrapper } from "./components/excalidraw-wrapper";
 
 function App() {
-  const { initialize, appReady } = useStore();
+  const { initialize, appReady, theme } = useStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+  }, [theme]);
 
   if (!appReady) {
     return (

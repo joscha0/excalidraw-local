@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import "@excalidraw/excalidraw/index.css";
 
 export function ExcalidrawWrapper() {
-  const { elements, currentFile, updateElements } = useStore();
+  const { elements, currentFile, updateElements, theme } = useStore();
 
   const onChangeHandler = useCallback(
     (elements: readonly ExcalidrawElement[]) => {
@@ -40,6 +40,7 @@ export function ExcalidrawWrapper() {
         initialData={{
           elements: elements,
         }}
+        theme={theme === "dark" ? "dark" : "light"}
         onChange={onChangeHandler}
         UIOptions={{
           canvasActions: {

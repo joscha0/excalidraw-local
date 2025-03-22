@@ -13,18 +13,23 @@ interface FileInfo {
   path: string;
 }
 
+export type Theme = "light" | "dark" | "system";
+
 interface AppState {
   files: FileInfo[];
   currentFile: FileInfo | null;
   elements: ExcalidrawElement[];
   appReady: boolean;
   basePath: string;
+  theme: Theme;
 
   initialize: () => Promise<void>;
   loadFiles: () => Promise<void>;
   createNewFile: (name: string) => Promise<void>;
   setCurrentFile: (file: FileInfo) => Promise<void>;
   updateElements: (elements: ExcalidrawElement[]) => Promise<void>;
+  setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
 }
 
 const directoryName = "excalidraw-local";
@@ -35,6 +40,12 @@ export const useStore = create<AppState>((set, get) => ({
   elements: [],
   appReady: false,
   basePath: "",
+  theme: "system",
+  setTheme: (theme) => set({ theme }),
+  toggleTheme: () =>
+    set((state) => ({
+      theme: state.theme === "light" ? "dark" : "light",
+    })),
 
   initialize: async () => {
     try {

@@ -1,4 +1,4 @@
-import { FileText, PlusCircle } from "lucide-react";
+import { FileText, Moon, PlusCircle, Sun } from "lucide-react";
 
 import {
   Sidebar,
@@ -15,7 +15,14 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 
 export function AppSidebar() {
-  const { files, currentFile, createNewFile, setCurrentFile } = useStore();
+  const {
+    files,
+    currentFile,
+    createNewFile,
+    setCurrentFile,
+    theme,
+    toggleTheme,
+  } = useStore();
   const [newFileName, setNewFileName] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
 
@@ -45,7 +52,22 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Excalidraw Local</SidebarGroupLabel>
+          <div className="flex justify-between items-center">
+            <SidebarGroupLabel>Excalidraw Local</SidebarGroupLabel>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            >
+              {theme === "light" ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
           <SidebarGroupContent>
             <SidebarMenu>
               <Button className="w-full mb-4" onClick={handleCreateFile}>
