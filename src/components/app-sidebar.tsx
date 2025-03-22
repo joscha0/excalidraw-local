@@ -84,7 +84,7 @@ export function AppSidebar() {
                     value={newFileName}
                     onChange={(e) => setNewFileName(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="drawing-name.excalidraw"
+                    placeholder="drawing-name"
                     className="w-full p-2 rounded border"
                     autoFocus
                   />
@@ -102,7 +102,7 @@ export function AppSidebar() {
                       onClick={() => setCurrentFile(file)}
                     >
                       <FileText className="mr-2 h-4 w-4" />
-                      {file.name}
+                      {file.name.replace(".excalidraw", "")}
                     </Button>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
