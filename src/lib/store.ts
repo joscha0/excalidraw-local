@@ -5,11 +5,13 @@ import {
   readTextFile,
   writeTextFile,
   mkdir,
+  rename,
+  remove,
 } from "@tauri-apps/plugin-fs";
 import { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { invoke } from "@tauri-apps/api/core";
 
-interface FileInfo {
+export interface FileInfo {
   name: string;
   path: string;
 }
@@ -44,6 +46,8 @@ interface AppState {
   commitChanges: (message: string) => Promise<void>;
   getFileHistory: () => Promise<FileHistoryEntry[]>;
   restoreVersion: (commitId: string) => Promise<void>;
+  renameFile: (file: FileInfo, newName: string) => Promise<void>;
+  deleteFile: (file: FileInfo) => Promise<void>;
 }
 
 const directoryName = "excalidraw-local";
@@ -225,6 +229,85 @@ export const useStore = create<AppState>((set, get) => ({
       await get().setCurrentFile(tempFile);
     } catch (error) {
       console.error("Failed to restore version:", error);
+    }
+  },
+
+  renameFile: async (file: FileInfo, newName: string) => {
+    try {
+      const fileName = newName.endsWith(".excalidraw")
+        ? newName
+        : `${newName}.excalidraw`;
+      const newPath = `${directoryName}/${fileName}`;
+
+      // Check if new filename already exists
+      const exists = get().files.some(
+        (f) =>
+          f.path !== file.path &&
+          f.name.toLowerCase() === fileName.toLowerCase()
+      );
+
+      if (exists) {
+        throw new Error(`A file named "${fileName}" already exists`);
+      }
+
+      // Rename the file
+      await rename(file.path, newPath, {
+        oldPathBaseDir: BaseDirectory.AppData,
+        newPathBaseDir: BaseDirectory.AppData,
+      });
+
+      // Update state
+      const newFile = { name: fileName, path: newPath };
+      set((state) => ({
+        files: state.files.map((f) => (f.path === file.path ? newFile : f)),
+        currentFile:
+          state.currentFile?.path === file.path ? newFile : state.currentFile,
+      }));
+
+      // Commit the rename action
+      await get().commitChanges(
+        `Renamed file from ${file.name} to ${fileName}`
+      );
+    } catch (error) {
+      console.error("Failed to rename file:", error);
+      throw error;
+    }
+  },
+
+  deleteFile: async (file: FileInfo) => {
+    try {
+      // Delete the file
+      await remove(file.path, { baseDir: BaseDirectory.AppData });
+
+      // Update state
+      const { currentFile, files } = get();
+      const newFiles = files.filter((f) => f.path !== file.path);
+
+      set({
+        files: newFiles,
+        currentFile:
+          currentFile?.path === file.path
+            ? newFiles.length > 0
+              ? newFiles[0]
+              : null
+            : currentFile,
+        elements:
+          currentFile?.path === file.path
+            ? newFiles.length > 0
+              ? []
+              : []
+            : get().elements,
+      });
+
+      await get().commitChanges(`Deleted file ${file.name}`);
+
+      // If we selected a new current file, load it
+      if (currentFile?.path === file.path && newFiles.length > 0) {
+        await get().setCurrentFile(newFiles[0]);
+      }
+    } catch (error) {
+      console.error("Failed to delete file:", error);
+      throw error;
     }
   },
 }));
