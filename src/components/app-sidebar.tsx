@@ -28,6 +28,7 @@ export function AppSidebar() {
   const [newFileName, setNewFileName] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const handleCreateFile = () => {
     if (!isCreating) {
@@ -36,9 +37,23 @@ export function AppSidebar() {
     }
 
     if (newFileName.trim()) {
+      // Check if a file with this name already exists
+      const fileName = newFileName.endsWith(".excalidraw")
+        ? newFileName
+        : `${newFileName}.excalidraw`;
+
+      const fileExists = files.some(
+        (file) => file.name.toLowerCase() === fileName.toLowerCase()
+      );
+
+      if (fileExists) {
+        setFileError(`A file named "${newFileName}" already exists`);
+        return;
+      }
       createNewFile(newFileName);
       setNewFileName("");
       setIsCreating(false);
+      setFileError(null);
     }
   };
 
@@ -49,6 +64,11 @@ export function AppSidebar() {
       setIsCreating(false);
       setNewFileName("");
     }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewFileName(e.target.value);
+    setFileError(null); // Clear error when user changes input
   };
 
   return (
@@ -101,12 +121,15 @@ export function AppSidebar() {
                   <input
                     type="text"
                     value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     placeholder="drawing-name"
                     className="w-full p-2 rounded border"
                     autoFocus
                   />
+                  {fileError && (
+                    <p className="text-sm text-red-500 mt-1">{fileError}</p>
+                  )}
                 </div>
               )}
 
