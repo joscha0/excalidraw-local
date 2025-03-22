@@ -14,6 +14,8 @@ import { useStore } from "@/lib/store";
 import { useState } from "react";
 import { Button } from "./ui/button";
 
+import { FileHistory } from "./file-history";
+
 export function AppSidebar() {
   const {
     files,
@@ -25,6 +27,7 @@ export function AppSidebar() {
   } = useStore();
   const [newFileName, setNewFileName] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const handleCreateFile = () => {
     if (!isCreating) {
@@ -72,6 +75,22 @@ export function AppSidebar() {
 
           <SidebarGroupContent>
             <SidebarMenu>
+              {currentFile && (
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setHistoryOpen(true)}
+                  >
+                    View File History
+                  </Button>
+                </div>
+              )}
+
+              <FileHistory
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+              />
+
               <Button className="w-full mb-4" onClick={handleCreateFile}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {isCreating ? "Confirm Create" : "New Drawing"}

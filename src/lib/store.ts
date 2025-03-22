@@ -7,6 +7,7 @@ import {
   mkdir,
 } from "@tauri-apps/plugin-fs";
 import { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import { invoke } from "@tauri-apps/api/core";
 
 interface FileInfo {
   name: string;
@@ -15,6 +16,13 @@ interface FileInfo {
 
 export type Theme = "light" | "dark" | "system";
 
+interface FileHistoryEntry {
+  commit_id: string;
+  message: string;
+  timestamp: number;
+  author: string;
+}
+
 interface AppState {
   files: FileInfo[];
   currentFile: FileInfo | null;
@@ -22,6 +30,8 @@ interface AppState {
   appReady: boolean;
   basePath: string;
   theme: Theme;
+  pendingChanges: boolean;
+  lastCommitTime: number;
 
   initialize: () => Promise<void>;
   loadFiles: () => Promise<void>;
@@ -30,6 +40,10 @@ interface AppState {
   updateElements: (elements: ExcalidrawElement[]) => Promise<void>;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  initializeGit: () => Promise<void>;
+  commitChanges: (message: string) => Promise<void>;
+  getFileHistory: () => Promise<FileHistoryEntry[]>;
+  restoreVersion: (commitId: string) => Promise<void>;
 }
 
 const directoryName = "excalidraw-local";
@@ -41,6 +55,8 @@ export const useStore = create<AppState>((set, get) => ({
   appReady: false,
   basePath: "",
   theme: "system",
+  pendingChanges: false,
+  lastCommitTime: Date.now(),
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
     set((state) => ({
@@ -57,6 +73,9 @@ export const useStore = create<AppState>((set, get) => ({
         // Directory might already exist, continue
         console.log("Directory might already exist:", error);
       }
+
+      await get().initializeGit();
+
       set({ appReady: true });
 
       await get().loadFiles();
@@ -113,27 +132,99 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCurrentFile: async (file: FileInfo) => {
     try {
+      // Commit pending changes on current file before switching
+      const { pendingChanges, currentFile } = get();
+      if (pendingChanges && currentFile) {
+        set({ lastCommitTime: Date.now(), pendingChanges: false });
+        await get().commitChanges("Updated drawing before switching files");
+      }
+
       const fileContent = await readTextFile(file.path, {
         baseDir: BaseDirectory.AppData,
       });
       const elements = JSON.parse(fileContent) as ExcalidrawElement[];
-      set({ currentFile: file, elements });
+      set({ currentFile: file, elements, pendingChanges: false });
     } catch (error) {
       console.error("Failed to load file:", error);
     }
   },
 
+  initializeGit: async () => {
+    try {
+      const result = await invoke<string>("init_git_repo");
+      console.log(result);
+    } catch (error) {
+      console.error("Failed to initialize Git repository:", error);
+    }
+  },
+
   updateElements: async (elements: ExcalidrawElement[]) => {
     try {
-      const { currentFile } = get();
+      const { currentFile, lastCommitTime } = get();
       if (currentFile) {
         await writeTextFile(currentFile.path, JSON.stringify(elements), {
           baseDir: BaseDirectory.AppData,
         });
-        set({ elements });
+        set({ elements, pendingChanges: true });
+
+        // commit after 10 minutes
+        if (lastCommitTime + 60 * 10 * 1000 < Date.now()) {
+          set({ lastCommitTime: Date.now(), pendingChanges: false });
+          await get().commitChanges("Updated drawing");
+        }
       }
     } catch (error) {
       console.error("Failed to update elements:", error);
+    }
+  },
+
+  commitChanges: async (message: string) => {
+    try {
+      const { currentFile } = get();
+      if (currentFile) {
+        const result = await invoke<string>("commit_changes", {
+          filePath: currentFile.path,
+          message,
+        });
+        console.log(result);
+      }
+    } catch (error) {
+      console.error("Failed to commit changes:", error);
+    }
+  },
+
+  getFileHistory: async () => {
+    try {
+      const { currentFile } = get();
+      if (!currentFile) return [];
+
+      const history = await invoke<FileHistoryEntry[]>("get_file_history", {
+        filePath: currentFile.path,
+      });
+      return history;
+    } catch (error) {
+      console.error("Failed to get file history:", error);
+      return [];
+    }
+  },
+
+  restoreVersion: async (commitId: string) => {
+    try {
+      const { currentFile } = get();
+      if (!currentFile) return;
+
+      const result = await invoke<string>("restore_version", {
+        filePath: currentFile.path,
+        commitId,
+      });
+      console.log(result);
+
+      // Reload the file content
+      const tempFile = { ...currentFile };
+      set({ currentFile: null });
+      await get().setCurrentFile(tempFile);
+    } catch (error) {
+      console.error("Failed to restore version:", error);
     }
   },
 }));

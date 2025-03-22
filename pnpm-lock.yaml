@@ -24,7 +24,7 @@ dependencies:
     specifier: ^4.0.15
     version: 4.0.15(vite@6.0.3)
   '@tauri-apps/api':
-    specifier: ^2
+    specifier: ^2.0.0
     version: 2.0.0
   '@tauri-apps/plugin-fs':
     specifier: ~2
