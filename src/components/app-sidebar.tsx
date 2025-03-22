@@ -52,8 +52,10 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <div className="flex justify-between items-center">
-            <SidebarGroupLabel>Excalidraw Local</SidebarGroupLabel>
+          <div className="flex justify-between items-center pb-4">
+            <SidebarGroupLabel className="font-bold text-lg">
+              Excalidraw Local
+            </SidebarGroupLabel>
             <Button
               variant="ghost"
               size="icon"
