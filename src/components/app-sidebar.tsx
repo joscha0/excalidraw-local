@@ -10,6 +10,7 @@ import {
   Move,
   MoreHorizontal,
   History,
+  RotateCcw,
 } from "lucide-react";
 
 import {
@@ -24,7 +25,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSub,
 } from "@/components/ui/sidebar";
-import { useStore, FileInfo } from "@/lib/store";
+import { useStore, FileInfo, directoryName } from "@/lib/store";
 import { useState } from "react";
 import { Button } from "./ui/button";
 
@@ -53,6 +54,7 @@ export function AppSidebar() {
     deleteFile,
     createFolder,
     moveFile,
+    loadFiles,
   } = useStore();
   const [newFileName, setNewFileName] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
@@ -356,18 +358,28 @@ export function AppSidebar() {
             <SidebarGroupLabel className="font-bold text-lg">
               Excalidraw Local
             </SidebarGroupLabel>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-            >
-              {theme === "light" ? (
-                <Moon className="h-4 w-4" />
-              ) : (
-                <Sun className="h-4 w-4" />
-              )}
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={loadFiles}
+                title="Refresh files"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+              >
+                {theme === "light" ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <SidebarGroupContent>
@@ -429,7 +441,7 @@ export function AppSidebar() {
               )}
 
               {/* Render the file tree */}
-              {renderFileTree()}
+              {renderFileTree(directoryName)}
 
               {moveDialogOpen && fileToMove && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

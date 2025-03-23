@@ -7,9 +7,11 @@ import {
   mkdir,
   rename,
   remove,
+  DirEntry,
 } from "@tauri-apps/plugin-fs";
 import { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { invoke } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
 
 export interface FileInfo {
   name: string;
@@ -54,7 +56,31 @@ interface AppState {
   moveFile: (file: FileInfo, targetFolderPath: string | null) => Promise<void>;
 }
 
-const directoryName = "excalidraw-local";
+export const directoryName = "excalidraw-local";
+
+async function processEntriesRecursively(
+  parent: string,
+  dirEntries: DirEntry[],
+  files: FileInfo[]
+) {
+  for (const entry of dirEntries) {
+    console.log(`Entry: ${entry.name}`);
+    // Add the current entry to the entries array
+
+    files.push({
+      name: entry.name || "",
+      path: `${parent}/${entry.name}`,
+      isFolder: entry.isDirectory,
+      parentPath: parent,
+    });
+
+    if (entry.isDirectory && !entry.name.startsWith(".")) {
+      const dir = await join(parent, entry.name);
+      const subEntries = await readDir(dir, { baseDir: BaseDirectory.AppData });
+      await processEntriesRecursively(dir, subEntries, files);
+    }
+  }
+}
 
 export const useStore = create<AppState>((set, get) => ({
   files: [],
@@ -94,45 +120,15 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadFiles: async () => {
     try {
-      const entries = await readDir(directoryName, {
+      const files: FileInfo[] = [];
+      const entriesFirst = await readDir(directoryName, {
         baseDir: BaseDirectory.AppData,
       });
+      await processEntriesRecursively(directoryName, entriesFirst, files);
 
-      const files: FileInfo[] = [];
-      const folders: FileInfo[] = [];
+      console.log("Loaded entries:", files);
 
-      // Process entries to build folder structure
-      entries.forEach((entry) => {
-        // Use entry.name for the path elements to construct the full path
-        const fullPath = entry.name || "";
-        const relativePath = fullPath.split(`${directoryName}/`)[1] || fullPath;
-        const pathParts = relativePath.split("/");
-        const parentPath =
-          pathParts.length > 1
-            ? `${directoryName}/${pathParts.slice(0, -1).join("/")}`
-            : null;
-
-        if (entry.isDirectory) {
-          // This is a folder
-          folders.push({
-            name: entry.name || "",
-            path: `${directoryName}/${relativePath}`,
-            isFolder: true,
-            parentPath,
-          });
-        } else if (entry.name?.endsWith(".excalidraw")) {
-          // This is a file
-          files.push({
-            name: entry.name || "",
-            path: `${directoryName}/${relativePath}`,
-            isFolder: false,
-            parentPath,
-          });
-        }
-      });
-
-      // Combine folders and files, with folders first
-      set({ files: [...folders, ...files] });
+      set({ files: files });
     } catch (error) {
       console.error("Failed to load files:", error);
     }
