@@ -446,6 +446,7 @@ export const useStore = create<AppState>((set, get) => ({
   commitChanges: async (message: string) => {
     try {
       const { currentFile } = get();
+      console.log(currentFile);
       if (currentFile) {
         const result = await invoke<string>("commit_changes", {
           filePath: currentFile.path,

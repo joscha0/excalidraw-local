@@ -23,62 +23,13 @@ fn init_git_repo(app_handle: AppHandle) -> Result<String, String> {
     }
 }
 
-// #[tauri::command]
-// fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> Result<String, String> {
-//     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-//     let repo_path = app_data.join("excalidraw-local");
-    
-//     // Open the repository
-//     let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
-    
-//     // Create the signature for the commit
-//     let signature = Signature::now("Excalidraw Local", "excalidraw@local.app")
-//         .map_err(|e| format!("Failed to create signature: {}", e))?;
-    
-//     // Add file to index
-//     let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
-    
-//     let relative_path = Path::new(&file_path).file_name().ok_or("Invalid file path")?;
-//     index.add_path(Path::new(relative_path)).map_err(|e| format!("Failed to add file: {}", e))?;
-//     index.write().map_err(|e| format!("Failed to write index: {}", e))?;
-    
-//     // Create tree from index
-//     let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
-//     let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
-    
-//     // Create commit
-//     let parent_commit = match repo.head() {
-//         Ok(head) => {
-//             let commit = head.peel_to_commit().map_err(|e| format!("Failed to peel to commit: {}", e))?;
-//             Some(commit)
-//         },
-//         Err(_) => None,
-//     };
-    
-//     let parents = match parent_commit {
-//         Some(commit) => vec![&commit],
-//         None => vec![],
-//     };
-    
-//     repo.commit(
-//         Some("HEAD"),
-//         &signature,
-//         &signature,
-//         &message,
-//         &tree,
-//         &parents,
-//     ).map_err(|e| format!("Failed to commit: {}", e))?;
-    
-//     Ok("Changes committed successfully".to_string())
-// }
-
 #[tauri::command]
 fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> Result<String, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let repo_path = app_data.join("excalidraw-local");
     
     // Open the repository
-    let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
+    let repo = Repository::open(repo_path.clone()).map_err(|e| format!("Failed to open repository: {}", e))?;
     
     // Create the signature for the commit
     let signature = Signature::now("Excalidraw Local", "excalidraw@local.app")
@@ -87,8 +38,11 @@ fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> 
     // Add file to index
     let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
     
-    let relative_path = Path::new(&file_path).file_name().ok_or("Invalid file path")?;
-    index.add_path(Path::new(relative_path)).map_err(|e| format!("Failed to add file: {}", e))?;
+    // Calculate the path relative to the repository root
+    let full_path = Path::new(&file_path);
+    let relative_path = full_path.strip_prefix("excalidraw-local/").unwrap_or(full_path);
+    
+    index.add_path(relative_path).map_err(|e| format!("Failed to add file: {}", e))?;
     index.write().map_err(|e| format!("Failed to write index: {}", e))?;
     
     // Create tree from index

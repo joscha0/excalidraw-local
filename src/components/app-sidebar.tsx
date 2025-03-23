@@ -12,6 +12,7 @@ import {
   History,
   RotateCcw,
   Settings,
+  GitCommit,
 } from "lucide-react";
 import { getVersion } from "@tauri-apps/api/app";
 
@@ -45,6 +46,7 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 import { SettingsDialog } from "./settings-dialog";
+import { CommitDialog } from "./commit-dialog";
 
 export function AppSidebar() {
   const {
@@ -75,6 +77,7 @@ export function AppSidebar() {
   const [targetFolder, setTargetFolder] = useState<FileInfo | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [commitOpen, setCommitOpen] = useState(false);
   const [appVersion, setAppVersion] = useState<string>("");
 
   useEffect(() => {
@@ -567,19 +570,30 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        <CommitDialog open={commitOpen} onClose={() => setCommitOpen(false)} />
         <SettingsDialog
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}
         />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSettingsOpen(true)}
-          title="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCommitOpen(true)}
+            title="Commit Changes"
+          >
+            <GitCommit className="h-4 w-4" />
+          </Button>
+        </div>
 
         <div className="mt-2 text-sm text-muted-foreground text-center">
           <p>Excalidraw Local v{appVersion}</p>
