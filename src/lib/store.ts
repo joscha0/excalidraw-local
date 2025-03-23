@@ -58,7 +58,7 @@ interface AppState {
   createNewFile: (name: string) => Promise<void>;
   setCurrentFile: (file: FileInfo) => Promise<void>;
   updateElements: (elements: ExcalidrawElement[]) => Promise<void>;
-  setTheme: (theme: Theme) => void;
+  setTheme: (theme: Theme) => Promise<void>;
   toggleTheme: () => void;
   initializeGit: () => Promise<void>;
   commitChanges: (message: string) => Promise<void>;
@@ -100,6 +100,18 @@ async function processEntriesRecursively(
   }
 }
 
+async function saveSettings(settings: any) {
+  try {
+    const settingsPath = await join(directoryName, "settings.json");
+    await writeTextFile(settingsPath, JSON.stringify(settings, null, 2), {
+      baseDir: BaseDirectory.AppData,
+    });
+  } catch (error) {
+    console.error("Failed to save settings:", error);
+    throw error;
+  }
+}
+
 export const useStore = create<AppState>((set, get) => ({
   files: [],
   currentFile: null,
@@ -119,11 +131,26 @@ export const useStore = create<AppState>((set, get) => ({
     interval: 10, // default 10 minutes
     message: "Updated drawing",
   },
-  setTheme: (theme) => set({ theme }),
-  toggleTheme: () =>
-    set((state) => ({
-      theme: state.theme === "light" ? "dark" : "light",
-    })),
+  setTheme: async (theme) => {
+    set({ theme });
+
+    await saveSettings({
+      gitConfig: get().gitConfig,
+      autoCommitConfig: get().autoCommitConfig,
+      theme,
+    });
+  },
+
+  toggleTheme: async () => {
+    const newTheme = get().theme === "light" ? "dark" : "light";
+    set({ theme: newTheme });
+
+    await saveSettings({
+      gitConfig: get().gitConfig,
+      autoCommitConfig: get().autoCommitConfig,
+      theme: newTheme,
+    });
+  },
 
   initialize: async () => {
     try {
@@ -149,6 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
         set({
           gitConfig: settings.gitConfig || get().gitConfig,
           autoCommitConfig: settings.autoCommitConfig || get().autoCommitConfig,
+          theme: settings.theme || get().theme,
         });
       } catch (error) {
         // Settings file might not exist yet, using defaults
