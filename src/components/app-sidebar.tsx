@@ -353,6 +353,27 @@ export function AppSidebar() {
     ));
   };
 
+  const renderFolderHierarchy = (parentPath: string | null = null) => {
+    const items = files.filter((file) => file.parentPath === parentPath);
+    const folders = items.filter((item) => item.isFolder);
+
+    return folders.map((folder) => (
+      <div className="ml-4" key={folder.path}>
+        <div
+          key={folder.path}
+          className={`p-2 hover:bg-muted rounded cursor-pointer ${
+            targetFolder?.path === folder.path ? "bg-muted" : ""
+          }`}
+          onClick={() => setTargetFolder(folder)}
+        >
+          <Folder className="h-4 w-4 inline mr-2" />
+          {folder.name}
+        </div>
+        {renderFolderHierarchy(folder.path)}
+      </div>
+    ));
+  };
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -467,33 +488,10 @@ export function AppSidebar() {
                         }`}
                         onClick={() => setTargetFolder(null)}
                       >
+                        <Folder className="h-4 w-4 inline mr-2" />
                         Root folder
                       </div>
-                      {files
-                        .filter(
-                          (file) =>
-                            file.isFolder &&
-                            // Don't show the folder being moved or its subfolders as destinations
-                            !(
-                              fileToMove.isFolder &&
-                              (file.path === fileToMove.path ||
-                                file.path.startsWith(`${fileToMove.path}/`))
-                            )
-                        )
-                        .map((folder) => (
-                          <div
-                            key={folder.path}
-                            className={`p-2 hover:bg-muted rounded cursor-pointer ${
-                              targetFolder?.path === folder.path
-                                ? "bg-muted"
-                                : ""
-                            }`}
-                            onClick={() => setTargetFolder(folder)}
-                          >
-                            <Folder className="h-4 w-4 inline mr-2" />
-                            {folder.name}
-                          </div>
-                        ))}
+                      {renderFolderHierarchy(directoryName)}
                     </div>
 
                     <div className="flex justify-end gap-2">
