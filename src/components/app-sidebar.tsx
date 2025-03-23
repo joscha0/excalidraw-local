@@ -22,6 +22,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
 } from "@/components/ui/sidebar";
 import { useStore, FileInfo } from "@/lib/store";
 import { useState } from "react";
@@ -34,6 +35,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 
 export function AppSidebar() {
   const {
@@ -203,142 +209,142 @@ export function AppSidebar() {
     ];
 
     return sortedItems.map((item) => (
-      <SidebarMenuItem
-        key={item.path}
-        className={item.isFolder ? "ml-0" : "ml-4"}
-      >
-        {fileToRename?.path === item.path ? (
-          <div className="mb-4">
-            <input
-              type="text"
-              value={renameValue}
-              onChange={(e) => {
-                setRenameValue(e.target.value);
-                setRenameError(null);
-              }}
-              onKeyDown={handleRenameKeyDown}
-              placeholder={item.isFolder ? "folder-name" : "drawing-name"}
-              className="w-full p-2 rounded border"
-              autoFocus
-            />
-            {renameError && (
-              <p className="text-sm text-red-500 mt-1">{renameError}</p>
-            )}
-            <div className="flex justify-end gap-2 mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFileToRename(null);
+      <Collapsible defaultOpen className="group/collapsible">
+        <SidebarMenuItem
+          key={item.path}
+          className={item.isFolder ? "ml-0" : "ml-4"}
+        >
+          {fileToRename?.path === item.path ? (
+            <div className="mb-4">
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => {
+                  setRenameValue(e.target.value);
                   setRenameError(null);
                 }}
-              >
-                Cancel
-              </Button>
-              <Button variant="default" size="sm" onClick={handleRename}>
-                Rename
-              </Button>
+                onKeyDown={handleRenameKeyDown}
+                placeholder={item.isFolder ? "folder-name" : "drawing-name"}
+                className="w-full p-2 rounded border"
+                autoFocus
+              />
+              {renameError && (
+                <p className="text-sm text-red-500 mt-1">{renameError}</p>
+              )}
+              <div className="flex justify-end gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFileToRename(null);
+                    setRenameError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="default" size="sm" onClick={handleRename}>
+                  Rename
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            <SidebarMenuButton asChild>
-              <Button
-                variant={
-                  !item.isFolder && currentFile?.path === item.path
-                    ? "secondary"
-                    : "ghost"
-                }
-                className="flex-1 justify-start mb-1 font-normal"
-                onClick={() => {
-                  if (!item.isFolder) {
-                    setCurrentFile(item);
+          ) : (
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton asChild>
+                <Button
+                  variant={
+                    !item.isFolder && currentFile?.path === item.path
+                      ? "secondary"
+                      : "ghost"
                   }
-                  // Could add folder expansion logic here
-                }}
-              >
-                {item.isFolder ? (
-                  <Folder className="mr-2 h-4 w-4" />
-                ) : (
-                  <FileText className="mr-2 h-4 w-4" />
-                )}
+                  className="flex-1 justify-start mb-1 font-normal"
+                  onClick={() => {
+                    if (!item.isFolder) {
+                      setCurrentFile(item);
+                    }
+                    // Could add folder expansion logic here
+                  }}
+                >
+                  {item.isFolder ? (
+                    <Folder className="mr-2 h-4 w-4" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  {item.isFolder
+                    ? item.name
+                    : item.name.replace(".excalidraw", "")}
+                </Button>
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+          )}
+
+          {fileToDelete?.path === item.path && (
+            <div className="mt-1 mb-3 p-3 bg-destructive/10 rounded-md">
+              <p className="text-sm mb-2">
+                Are you sure you want to delete "
                 {item.isFolder
                   ? item.name
                   : item.name.replace(".excalidraw", "")}
-              </Button>
-            </SidebarMenuButton>
-
-            {!item.isFolder && currentFile?.path === item.path && (
-              <div className="flex justify-end w-full mt-1 mb-2"></div>
-            )}
-          </>
-        )}
-
-        {fileToDelete?.path === item.path && (
-          <div className="mt-1 mb-3 p-3 bg-destructive/10 rounded-md">
-            <p className="text-sm mb-2">
-              Are you sure you want to delete "
-              {item.isFolder ? item.name : item.name.replace(".excalidraw", "")}
-              "?
-              {item.isFolder && " This will delete all files inside."}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFileToDelete(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleDelete(item)}
-              >
-                Delete
-              </Button>
+                "?
+                {item.isFolder && " This will delete all files inside."}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFileToDelete(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDelete(item)}
+                >
+                  Delete
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {fileToRename?.path !== item.path && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <SidebarMenuAction>
-                <MoreHorizontal />
-              </SidebarMenuAction>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start">
-              {!item.isFolder && (
-                <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
-                  <History className="h-4 w-4" />
-                  <span>View History</span>
+          {fileToRename?.path !== item.path && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuAction>
+                  <MoreHorizontal />
+                </SidebarMenuAction>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start">
+                {!item.isFolder && currentFile?.path === item.path && (
+                  <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                    <History className="h-4 w-4" />
+                    <span>View History</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => handleStartRename(item)}>
+                  <Edit2 className="h-4 w-4" />
+                  <span>Edit Name</span>
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => handleStartRename(item)}>
-                <Edit2 className="h-4 w-4" />
-                <span>Edit Name</span>
-              </DropdownMenuItem>
-              {!item.isFolder && (
-                <DropdownMenuItem onClick={() => handleMoveFile(item)}>
-                  <Move className="h-4 w-4" />
-                  <span>Move</span>
+                {!item.isFolder && (
+                  <DropdownMenuItem onClick={() => handleMoveFile(item)}>
+                    <Move className="h-4 w-4" />
+                    <span>Move File</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => setFileToDelete(item)}>
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete</span>
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => setFileToDelete(item)}>
-                <Trash2 className="h-4 w-4" />
-                <span>Delete</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {/* Render subfolders and files recursively */}
-        {item.isFolder && (
-          <div className="pl-4 mt-1">
-            <SidebarMenu>{renderFileTree(item.path)}</SidebarMenu>
-          </div>
-        )}
-      </SidebarMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {/* Render subfolders and files recursively */}
+          {item.isFolder && (
+            <CollapsibleContent>
+              <SidebarMenuSub>{renderFileTree(item.path)}</SidebarMenuSub>
+            </CollapsibleContent>
+          )}
+        </SidebarMenuItem>
+      </Collapsible>
     ));
   };
 
