@@ -33,6 +33,7 @@ interface GitConfig {
   remoteUrl: string;
   username: string;
   email: string;
+  sshKeyPath?: string; // Add this field
 }
 
 interface AutoCommitConfig {
@@ -71,6 +72,9 @@ interface AppState {
   updateGitConfig: (config: GitConfig) => Promise<void>;
   updateAutoCommitConfig: (config: AutoCommitConfig) => Promise<void>;
   testGitConnection: (config: GitConfig) => Promise<boolean>;
+  generateSshKey: (
+    email: string
+  ) => Promise<{ publicKey: string; keyPath: string }>;
 }
 
 export const directoryName = "excalidraw-local";
@@ -441,7 +445,9 @@ export const useStore = create<AppState>((set, get) => ({
       const { gitConfig } = get();
       if (gitConfig.remoteUrl) {
         try {
-          const pushResult = await invoke<string>("push_to_remote");
+          const pushResult = await invoke<string>("push_to_remote", {
+            sshKeyPath: gitConfig.sshKeyPath,
+          });
           console.log(pushResult);
         } catch (pushError) {
           console.error("Failed to push to remote:", pushError);
@@ -666,11 +672,25 @@ export const useStore = create<AppState>((set, get) => ({
         url: config.remoteUrl,
         username: config.username,
         email: config.email,
+        sshKeyPath: config.sshKeyPath,
       });
 
       return result;
     } catch (error) {
       console.error("Failed to test Git connection:", error);
+      throw error;
+    }
+  },
+
+  generateSshKey: async (email: string) => {
+    try {
+      const keyPath = `$/.ssh/excalidraw_deploy_key`;
+      const result = await invoke<string>("generate_ssh_key", {
+        email,
+      });
+      return { publicKey: result, keyPath };
+    } catch (error) {
+      console.error("Failed to generate SSH key:", error);
       throw error;
     }
   },

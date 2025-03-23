@@ -181,8 +181,6 @@ fn restore_version(app_handle: AppHandle, file_path: String, commit_id: String) 
     Ok("Version restored successfully".to_string())
 }
 
-
-
 #[tauri::command]
 fn set_git_remote(app_handle: AppHandle, url: String) -> Result<String, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -198,12 +196,25 @@ fn set_git_remote(app_handle: AppHandle, url: String) -> Result<String, String> 
 }
 
 #[tauri::command]
-fn push_to_remote(app_handle: AppHandle) -> Result<String, String> {
+fn push_to_remote(app_handle: AppHandle, ssh_key_path: Option<String>) -> Result<String, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let repo_path = app_data.join("excalidraw-local");
     
     let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
     let mut callbacks = git2::RemoteCallbacks::new();
+    let key_path = ssh_key_path.clone();
+    callbacks.credentials(move |_url, username_from_url, allowed_types| {
+        let username = username_from_url.unwrap_or("git");
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if let Some(ref path) = key_path {
+                git2::Cred::ssh_key(username, None, std::path::Path::new(path), None)
+            } else {
+                git2::Cred::ssh_key_from_agent(username)
+            }
+        } else {
+            Err(git2::Error::from_str("No supported authentication method"))
+        }
+    });
     let mut push_options = git2::PushOptions::new();
     push_options.remote_callbacks(callbacks);
     
@@ -215,7 +226,7 @@ fn push_to_remote(app_handle: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn test_git_connection(app_handle: AppHandle, url: String, username: String, email: String) -> Result<bool, String> {
+fn test_git_connection(app_handle: AppHandle, url: String, username: String, email: String, ssh_key_path: Option<String>) -> Result<bool, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let repo_path = app_data.join("excalidraw-local");
     
@@ -230,14 +241,63 @@ fn test_git_connection(app_handle: AppHandle, url: String, username: String, ema
         Err(_) => repo.remote("origin", &url).map_err(|e| format!("Failed to create remote: {}", e))?,
     };
     
-    let result = remote.connect(git2::Direction::Fetch);
+    let mut callbacks = git2::RemoteCallbacks::new();
+    let key_path = ssh_key_path.clone();
+    callbacks.credentials(move |_url, username_from_url, allowed_types| {
+        let username = username_from_url.unwrap_or("git");
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if let Some(ref path) = key_path {
+                git2::Cred::ssh_key(username, None, std::path::Path::new(path), None)
+            } else {
+                git2::Cred::ssh_key_from_agent(username)
+            }
+        } else {
+            Err(git2::Error::from_str("No supported authentication method"))
+        }
+    });
+    remote.connect(git2::Direction::Fetch).map_err(|e| format!("Failed to connect to remote: {}", e))?;
+    
     if repo.find_remote("origin").is_err() {
         repo.remote_delete("origin").ok();
     }
     
-    match result {
-        Ok(_) => Ok(true),
-        Err(e) => Err(format!("Failed to connect to remote: {}", e)),
+    Ok(true)
+}
+
+#[tauri::command]
+fn generate_ssh_key(app_handle: AppHandle, email: String) -> Result<String, String> {
+    use std::process::Command;
+    use std::fs;
+    
+    // Get app data directory
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let repo_path = app_data.join("excalidraw-local");
+    
+    // Create .ssh directory inside app data if it doesn't exist
+    let ssh_dir = repo_path.join(".ssh");
+    if !ssh_dir.exists() {
+        fs::create_dir_all(&ssh_dir).map_err(|e| format!("Failed to create .ssh directory: {}", e))?;
+    }
+    
+    // Create absolute path for the key
+    let key_path = ssh_dir.join("excalidraw_deploy_key");
+    let key_path_str = key_path.to_str().ok_or("Invalid path")?;
+    
+    // Generate the SSH key
+    let result = Command::new("ssh-keygen")
+        .args(["-t", "ed25519", "-C", &email, "-f", key_path_str, "-N", ""])
+        .output()
+        .map_err(|e| format!("Failed to execute ssh-keygen: {}", e))?;
+        
+    if !result.status.success() {
+        return Err(format!("ssh-keygen failed: {}", String::from_utf8_lossy(&result.stderr)));
+    }
+    
+    // Read the public key
+    let pub_key_path = format!("{}.pub", key_path_str);
+    match fs::read_to_string(&pub_key_path) {
+        Ok(content) => Ok(content),
+        Err(e) => Err(format!("Failed to read public key: {}. Path: {}", e, pub_key_path))
     }
 }
 
@@ -253,7 +313,8 @@ pub fn run() {
             restore_version,
             set_git_remote,
             push_to_remote,
-            test_git_connection
+            test_git_connection,
+            generate_ssh_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

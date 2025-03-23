@@ -31,11 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { CopyButton } from "./ui/copy-button";
 
 const gitConfigSchema = z.object({
   remoteUrl: z.string().url("Please enter a valid URL").or(z.literal("")),
   username: z.string(),
   email: z.string().email("Please enter a valid email address"),
+  sshKeyPath: z.string().optional(),
 });
 
 const autoCommitSchema = z.object({
@@ -70,6 +72,7 @@ export function SettingsDialog({
       remoteUrl: gitConfig.remoteUrl || "",
       username: gitConfig.username || "",
       email: gitConfig.email || "",
+      sshKeyPath: gitConfig.sshKeyPath || "",
     },
   });
 
@@ -82,6 +85,9 @@ export function SettingsDialog({
     },
   });
 
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [sshPublicKey, setSshPublicKey] = useState<string | null>(null);
+
   useEffect(() => {
     if (open) {
       // Reset forms when dialog opens
@@ -89,6 +95,7 @@ export function SettingsDialog({
         remoteUrl: gitConfig.remoteUrl || "",
         username: gitConfig.username || "",
         email: gitConfig.email || "",
+        sshKeyPath: gitConfig.sshKeyPath || "",
       });
 
       autoCommitForm.reset({
@@ -128,6 +135,29 @@ export function SettingsDialog({
     } catch (error) {
       setConnectionStatus("error");
       setConnectionMessage(`Connection failed: ${(error as Error).message}`);
+    }
+  };
+
+  const handleGenerateSSHKey = async () => {
+    try {
+      setIsGeneratingKey(true);
+      const email = gitForm.getValues().email;
+      if (!email) {
+        gitForm.setError("email", {
+          message: "Email is required to generate an SSH key",
+        });
+        setIsGeneratingKey(false);
+        return;
+      }
+      const { publicKey, keyPath } = await useStore
+        .getState()
+        .generateSshKey(email);
+      gitForm.setValue("sshKeyPath", keyPath);
+      setSshPublicKey(publicKey);
+      setIsGeneratingKey(false);
+    } catch (error) {
+      setIsGeneratingKey(false);
+      console.error("Failed to generate SSH key:", error);
     }
   };
 
@@ -204,6 +234,54 @@ export function SettingsDialog({
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={gitForm.control}
+                  name="sshKeyPath"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SSH Key Path</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input placeholder="~/.ssh/id_ed25519" {...field} />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleGenerateSSHKey}
+                          disabled={isGeneratingKey}
+                        >
+                          {isGeneratingKey ? "Generating..." : "Generate"}
+                        </Button>
+                      </div>
+                      <FormDescription>
+                        Path to your SSH private key for GitHub authentication
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {sshPublicKey && (
+                  <div className="p-2 bg-muted rounded-md">
+                    <p className="text-sm font-medium mb-1">
+                      Generated Public Key:
+                    </p>
+
+                    <div className="relative">
+                      <pre className="text-xs overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all p-2 pb-8 bg-background rounded border">
+                        {sshPublicKey}
+                      </pre>
+                      <div className="absolute bottom-2 right-2">
+                        <CopyButton value={sshPublicKey} />
+                      </div>
+                    </div>
+                    <p className="text-xs mt-2">
+                      Add this as a deploy key in your GitHub repository
+                      settings
+                    </p>
+                  </div>
+                )}
 
                 {gitForm.watch("remoteUrl") && (
                   <div className="flex flex-col gap-2">
