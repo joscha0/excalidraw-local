@@ -3,9 +3,15 @@ import { useStore } from "@/lib/store";
 import { AppSidebar } from "./components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ExcalidrawWrapper } from "./components/excalidraw-wrapper";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from "./components/ui/breadcrumb";
 
 function App() {
-  const { initialize, appReady, theme } = useStore();
+  const { initialize, appReady, theme, currentFile } = useStore();
 
   useEffect(() => {
     initialize();
@@ -35,7 +41,31 @@ function App() {
       <SidebarProvider>
         <AppSidebar />
         <main className="flex flex-col w-full h-full">
-          <SidebarTrigger />
+          <div className="flex w-full">
+            <SidebarTrigger />
+            <div className="w-full flex items-center justify-center">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {currentFile?.path.split("/").map((item, index, arr) => {
+                    return (
+                      <>
+                        {index !== 0 && <BreadcrumbSeparator />}
+                        <BreadcrumbItem
+                          className={
+                            index == arr.length - 1
+                              ? "font-bold text-white"
+                              : ""
+                          }
+                        >
+                          {item}
+                        </BreadcrumbItem>
+                      </>
+                    );
+                  })}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          </div>
           <ExcalidrawWrapper />
         </main>
       </SidebarProvider>
