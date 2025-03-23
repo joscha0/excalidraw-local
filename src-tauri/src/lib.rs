@@ -1,4 +1,4 @@
-use git2::{Repository, Signature };
+use git2::{Repository, Signature};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
 
@@ -24,7 +24,7 @@ fn init_git_repo(app_handle: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> Result<String, String> {
+fn commit_all_changes(app_handle: AppHandle, message: String) -> Result<String, String> {
     let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let repo_path = app_data.join("excalidraw-local");
     
@@ -35,14 +35,12 @@ fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> 
     let signature = Signature::now("Excalidraw Local", "excalidraw@local.app")
         .map_err(|e| format!("Failed to create signature: {}", e))?;
     
-    // Add file to index
+    // Add all files to index
     let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
-    
-    // Calculate the path relative to the repository root
-    let full_path = Path::new(&file_path);
-    let relative_path = full_path.strip_prefix("excalidraw-local/").unwrap_or(full_path);
-    
-    index.add_path(relative_path).map_err(|e| format!("Failed to add file: {}", e))?;
+    index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .map_err(|e| format!("Failed to add all files: {}", e))?;
+    index.update_all(["*"].iter(), None)
+        .map_err(|e| format!("Failed to update index: {}", e))?;
     index.write().map_err(|e| format!("Failed to write index: {}", e))?;
     
     // Create tree from index
@@ -52,17 +50,16 @@ fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> 
     let parent_commit = match repo.head() {
         Ok(head) => head.peel_to_commit().map_err(|e| format!("Failed to peel to commit: {}", e))?,
         Err(_) => {
-            // No parent commit, create commit with empty parents
             return repo.commit(
                 Some("HEAD"),
                 &signature,
                 &signature,
                 &message,
                 &tree,
-                &[] // empty parents
+                &[]
             )
             .map_err(|e| format!("Failed to commit: {}", e))
-            .map(|_| "Changes committed successfully".to_string());
+            .map(|_| "All changes committed successfully".to_string());
         }
     };
     
@@ -72,10 +69,10 @@ fn commit_changes(app_handle: AppHandle, file_path: String, message: String) -> 
         &signature,
         &message,
         &tree,
-        &[&parent_commit] // directly use parent_commit
+        &[&parent_commit]
     )
     .map_err(|e| format!("Failed to commit: {}", e))
-    .map(|_| "Changes committed successfully".to_string())
+    .map(|_| "All changes committed successfully".to_string())
 }
 
 #[tauri::command]
@@ -191,7 +188,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             init_git_repo,
-            commit_changes,
+            commit_all_changes, // Add the new function
             get_file_history,
             restore_version
         ])

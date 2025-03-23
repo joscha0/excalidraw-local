@@ -20,7 +20,7 @@ export interface FileInfo {
   parentPath: string | null;
 }
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark";
 
 interface FileHistoryEntry {
   commit_id: string;
@@ -129,7 +129,7 @@ export const useStore = create<AppState>((set, get) => ({
   autoCommitConfig: {
     enabled: false,
     interval: 10, // default 10 minutes
-    message: "Updated drawing",
+    message: "Updated drawings",
   },
   setTheme: async (theme) => {
     set({ theme });
@@ -389,17 +389,6 @@ export const useStore = create<AppState>((set, get) => ({
   setCurrentFile: async (file: FileInfo) => {
     try {
       // Commit pending changes on current file before switching
-      const { pendingChanges, currentFile, lastCommitTime, autoCommitConfig } =
-        get();
-      if (
-        autoCommitConfig.enabled &&
-        lastCommitTime + 60 * 1000 * autoCommitConfig.interval < Date.now() &&
-        pendingChanges &&
-        currentFile
-      ) {
-        set({ lastCommitTime: Date.now(), pendingChanges: false });
-        await get().commitChanges(autoCommitConfig.message);
-      }
 
       const fileContent = await readTextFile(file.path, {
         baseDir: BaseDirectory.AppData,
@@ -445,17 +434,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   commitChanges: async (message: string) => {
     try {
-      const { currentFile } = get();
-      console.log(currentFile);
-      if (currentFile) {
-        const result = await invoke<string>("commit_changes", {
-          filePath: currentFile.path,
-          message,
-        });
-        console.log(result);
-      }
+      const result = await invoke<string>("commit_all_changes", {
+        message,
+      });
+      console.log(result);
+      set({ pendingChanges: false });
     } catch (error) {
       console.error("Failed to commit changes:", error);
+      throw error;
     }
   },
 

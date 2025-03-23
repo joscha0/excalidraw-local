@@ -10,7 +10,6 @@ import {
 } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
-import { Checkbox } from "./ui/checkbox";
 
 interface CommitDialogProps {
   open: boolean;
@@ -18,11 +17,8 @@ interface CommitDialogProps {
 }
 
 export function CommitDialog({ open, onClose }: CommitDialogProps) {
-  const { commitChanges, pendingChanges, currentFile } = useStore();
+  const { commitChanges, pendingChanges } = useStore();
   const [commitMessage, setCommitMessage] = useState<string>("");
-  const [selectedFiles, setSelectedFiles] = useState<{
-    [key: string]: boolean;
-  }>({});
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,15 +27,8 @@ export function CommitDialog({ open, onClose }: CommitDialogProps) {
     if (open) {
       setCommitMessage("");
       setError(null);
-
-      // Initialize with current file if it has pending changes
-      const initialSelection: { [key: string]: boolean } = {};
-      if (pendingChanges && currentFile) {
-        initialSelection[currentFile.path] = true;
-      }
-      setSelectedFiles(initialSelection);
     }
-  }, [open, currentFile, pendingChanges]);
+  }, [open]);
 
   const handleCommit = async () => {
     if (!commitMessage.trim()) {
@@ -47,11 +36,7 @@ export function CommitDialog({ open, onClose }: CommitDialogProps) {
       return;
     }
 
-    // Check if at least one file is selected
-    const hasSelectedFiles = Object.values(selectedFiles).some(
-      (selected) => selected
-    );
-    if (!hasSelectedFiles) {
+    if (!pendingChanges) {
       return;
     }
 
@@ -68,18 +53,11 @@ export function CommitDialog({ open, onClose }: CommitDialogProps) {
     }
   };
 
-  const toggleFileSelection = (path: string) => {
-    setSelectedFiles((prev) => ({
-      ...prev,
-      [path]: !prev[path],
-    }));
-  };
-
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Commit Changes</DialogTitle>
+          <DialogTitle>Commit All Changes</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
@@ -93,26 +71,9 @@ export function CommitDialog({ open, onClose }: CommitDialogProps) {
             />
           </div>
 
-          {pendingChanges && currentFile ? (
-            <div className="grid gap-2">
-              <Label>Files to Commit</Label>
-              <div className="max-h-[200px] overflow-y-auto border rounded p-2">
-                <div
-                  className="flex items-center space-x-2"
-                  key={currentFile.path}
-                >
-                  <Checkbox
-                    id={currentFile.path}
-                    checked={selectedFiles[currentFile.path] || false}
-                    onCheckedChange={() =>
-                      toggleFileSelection(currentFile.path)
-                    }
-                  />
-                  <Label htmlFor={currentFile.path} className="cursor-pointer">
-                    {currentFile.name} (current file)
-                  </Label>
-                </div>
-              </div>
+          {pendingChanges ? (
+            <div className="text-sm">
+              All pending changes will be committed to the repository.
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">
@@ -129,13 +90,9 @@ export function CommitDialog({ open, onClose }: CommitDialogProps) {
           </Button>
           <Button
             onClick={handleCommit}
-            disabled={
-              isCommitting ||
-              !pendingChanges ||
-              !Object.values(selectedFiles).some((selected) => selected)
-            }
+            disabled={isCommitting || !pendingChanges}
           >
-            {isCommitting ? "Committing..." : "Commit"}
+            {isCommitting ? "Committing..." : "Commit All Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
