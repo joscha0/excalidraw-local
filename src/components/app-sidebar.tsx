@@ -69,6 +69,7 @@ export function AppSidebar() {
   const [moveDialogOpen, setMoveDialogOpen] = useState<boolean>(false);
   const [fileToMove, setFileToMove] = useState<FileInfo | null>(null);
   const [targetFolder, setTargetFolder] = useState<FileInfo | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   const handleCreateFile = () => {
     if (!isCreating) {
@@ -184,6 +185,7 @@ export function AppSidebar() {
   const handleMoveFile = (file: FileInfo) => {
     setFileToMove(file);
     setMoveDialogOpen(true);
+    setMoveError(null);
   };
 
   const confirmMoveFile = async () => {
@@ -194,8 +196,10 @@ export function AppSidebar() {
       setFileToMove(null);
       setTargetFolder(null);
       setMoveDialogOpen(false);
+      setMoveError(null);
     } catch (error) {
       console.error("Error moving file:", error);
+      setMoveError((error as Error).message);
     }
   };
 
@@ -366,7 +370,10 @@ export function AppSidebar() {
           className={`p-2 hover:bg-muted rounded cursor-pointer ${
             targetFolder?.path === folder.path ? "bg-muted" : ""
           }`}
-          onClick={() => setTargetFolder(folder)}
+          onClick={() => {
+            setTargetFolder(folder);
+            setMoveError(null);
+          }}
         >
           <Folder className="h-4 w-4 inline mr-2" />
           {folder.name}
@@ -488,13 +495,22 @@ export function AppSidebar() {
                         className={`p-2 hover:bg-muted rounded cursor-pointer ${
                           targetFolder === null ? "bg-muted" : ""
                         }`}
-                        onClick={() => setTargetFolder(null)}
+                        onClick={() => {
+                          setTargetFolder(null);
+                          setMoveError(null);
+                        }}
                       >
                         <Folder className="h-4 w-4 inline mr-2" />
                         Root folder
                       </div>
                       {renderFolderHierarchy(directoryName)}
                     </div>
+
+                    {moveError && (
+                      <div className="mb-4 p-2 bg-destructive/10 text-destructive rounded-md text-sm">
+                        {moveError}
+                      </div>
+                    )}
 
                     <div className="flex justify-end gap-2">
                       <Button
@@ -504,6 +520,7 @@ export function AppSidebar() {
                           setMoveDialogOpen(false);
                           setFileToMove(null);
                           setTargetFolder(null);
+                          setMoveError(null);
                         }}
                       >
                         Cancel
