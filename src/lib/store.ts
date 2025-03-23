@@ -394,7 +394,7 @@ export const useStore = create<AppState>((set, get) => ({
         baseDir: BaseDirectory.AppData,
       });
       const elements = JSON.parse(fileContent) as ExcalidrawElement[];
-      set({ currentFile: file, elements, pendingChanges: false });
+      set({ currentFile: file, elements });
     } catch (error) {
       console.error("Failed to load file:", error);
     }
