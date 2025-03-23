@@ -174,36 +174,92 @@ export const useStore = create<AppState>((set, get) => ({
         ? `${targetFolderPath}/${fileName}`
         : `${directoryName}/${fileName}`;
 
-      // Move the file
+      // Don't allow moving a folder into itself or its subfolder
+      if (file.isFolder && targetFolderPath?.startsWith(file.path)) {
+        throw new Error("Cannot move a folder into itself or its subfolder");
+      }
+
+      // Move the file or folder
       await rename(sourcePath, destinationPath, {
         oldPathBaseDir: BaseDirectory.AppData,
         newPathBaseDir: BaseDirectory.AppData,
       });
 
-      // Update file information
-      const updatedFile: FileInfo = {
-        ...file,
-        path: destinationPath,
-        parentPath: targetFolderPath || directoryName,
-      };
+      // Update file information in state
+      if (file.isFolder) {
+        // For folders, we need to update paths of all contained files/folders
+        set((state) => {
+          const updatedFiles = state.files.map((f) => {
+            // If this is the folder being moved or a file/folder inside it
+            if (f.path === sourcePath || f.path.startsWith(`${sourcePath}/`)) {
+              // Calculate the new path by replacing the beginning part
+              const relativePath = f.path.slice(sourcePath.length);
+              const newPath = destinationPath + relativePath;
 
-      // Update state
-      set((state) => ({
-        files: state.files.map((f) =>
-          f.path === sourcePath ? updatedFile : f
-        ),
-        currentFile:
-          state.currentFile?.path === sourcePath
-            ? updatedFile
-            : state.currentFile,
-      }));
+              // Calculate the new parent path
+              let newParentPath;
+              if (f.path === sourcePath) {
+                // The folder itself gets the target as parent
+                newParentPath = targetFolderPath || directoryName;
+              } else {
+                // Items inside need their parent path updated
+                const parentRelative = f.parentPath!.slice(sourcePath.length);
+                newParentPath = destinationPath + parentRelative;
+              }
+
+              return {
+                ...f,
+                path: newPath,
+                parentPath: newParentPath,
+              };
+            }
+            return f;
+          });
+
+          // Update current file reference if needed
+          const updatedCurrentFile =
+            state.currentFile &&
+            (state.currentFile.path === sourcePath ||
+              state.currentFile.path.startsWith(`${sourcePath}/`))
+              ? updatedFiles.find(
+                  (f) =>
+                    f.path ===
+                    state.currentFile!.path.replace(sourcePath, destinationPath)
+                )
+              : state.currentFile;
+
+          return {
+            files: updatedFiles,
+            currentFile: updatedCurrentFile,
+          };
+        });
+      } else {
+        // Simple case - just a single file
+        const updatedFile: FileInfo = {
+          ...file,
+          path: destinationPath,
+          parentPath: targetFolderPath || directoryName,
+        };
+
+        set((state) => ({
+          files: state.files.map((f) =>
+            f.path === sourcePath ? updatedFile : f
+          ),
+          currentFile:
+            state.currentFile?.path === sourcePath
+              ? updatedFile
+              : state.currentFile,
+        }));
+      }
 
       // Commit the move action
       await get().commitChanges(
-        `Moved ${file.name} to ${targetFolderPath || "root"}`
+        `Moved ${file.isFolder ? "folder" : "file"} ${file.name} to ${
+          targetFolderPath || "root"
+        }`
       );
     } catch (error) {
-      console.error("Failed to move file:", error);
+      console.error("Failed to move file/folder:", error);
       throw error;
     }
   },

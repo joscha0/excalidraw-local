@@ -324,14 +324,12 @@ export function AppSidebar() {
                 )}
                 <DropdownMenuItem onClick={() => handleStartRename(item)}>
                   <Edit2 className="h-4 w-4" />
-                  <span>Edit Name</span>
+                  <span>Rename {item.isFolder ? "Folder" : "File"}</span>
                 </DropdownMenuItem>
-                {!item.isFolder && (
-                  <DropdownMenuItem onClick={() => handleMoveFile(item)}>
-                    <Move className="h-4 w-4" />
-                    <span>Move File</span>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem onClick={() => handleMoveFile(item)}>
+                  <Move className="h-4 w-4" />
+                  <span>Move {item.isFolder ? "Folder" : "File"}</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setFileToDelete(item)}>
                   <Trash2 className="h-4 w-4" />
                   <span>Delete</span>
@@ -446,9 +444,15 @@ export function AppSidebar() {
               {moveDialogOpen && fileToMove && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-background p-6 rounded-lg w-80">
-                    <h3 className="text-lg font-semibold mb-4">Move File</h3>
+                    <h3 className="text-lg font-semibold mb-4">
+                      Move {fileToMove.isFolder ? "Folder" : "File"}
+                    </h3>
                     <p className="mb-2">
-                      Move "{fileToMove.name.replace(".excalidraw", "")}" to:
+                      Move "
+                      {fileToMove.isFolder
+                        ? fileToMove.name
+                        : fileToMove.name.replace(".excalidraw", "")}
+                      " to:
                     </p>
 
                     <div className="max-h-60 overflow-y-auto mb-4 border rounded p-2">
@@ -461,7 +465,16 @@ export function AppSidebar() {
                         Root folder
                       </div>
                       {files
-                        .filter((file) => file.isFolder)
+                        .filter(
+                          (file) =>
+                            file.isFolder &&
+                            // Don't show the folder being moved or its subfolders as destinations
+                            !(
+                              fileToMove.isFolder &&
+                              (file.path === fileToMove.path ||
+                                file.path.startsWith(`${fileToMove.path}/`))
+                            )
+                        )
                         .map((folder) => (
                           <div
                             key={folder.path}
