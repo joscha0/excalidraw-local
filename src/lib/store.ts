@@ -184,7 +184,7 @@ export const useStore = create<AppState>((set, get) => ({
       const updatedFile: FileInfo = {
         ...file,
         path: destinationPath,
-        parentPath: targetFolderPath,
+        parentPath: targetFolderPath || directoryName,
       };
 
       // Update state
