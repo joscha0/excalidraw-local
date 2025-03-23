@@ -210,12 +210,17 @@ export function AppSidebar() {
       ...items.filter((item) => !item.isFolder),
     ];
 
+    if (items.length === 0) {
+      return (
+        <p className="text-sm text-muted-foreground text-center">
+          Empty folder.
+        </p>
+      );
+    }
+
     return sortedItems.map((item) => (
       <Collapsible defaultOpen className="group/collapsible">
-        <SidebarMenuItem
-          key={item.path}
-          className={item.isFolder ? "ml-0" : "ml-4"}
-        >
+        <SidebarMenuItem key={item.path}>
           {fileToRename?.path === item.path ? (
             <div className="mb-4">
               <input
