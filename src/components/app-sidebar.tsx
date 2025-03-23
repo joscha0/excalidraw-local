@@ -345,7 +345,9 @@ export function AppSidebar() {
           {/* Render subfolders and files recursively */}
           {item.isFolder && (
             <CollapsibleContent>
-              <SidebarMenuSub>{renderFileTree(item.path)}</SidebarMenuSub>
+              <SidebarMenuSub className="pr-0 mr-0">
+                {renderFileTree(item.path)}
+              </SidebarMenuSub>
             </CollapsibleContent>
           )}
         </SidebarMenuItem>
