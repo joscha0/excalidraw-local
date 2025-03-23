@@ -65,8 +65,11 @@ async function processEntriesRecursively(
 ) {
   for (const entry of dirEntries) {
     console.log(`Entry: ${entry.name}`);
-    // Add the current entry to the entries array
 
+    if (entry.name.startsWith(".")) {
+      continue; // Skip hidden files
+    }
+    // Add the current entry to the entries array
     files.push({
       name: entry.name || "",
       path: `${parent}/${entry.name}`,
@@ -74,7 +77,7 @@ async function processEntriesRecursively(
       parentPath: parent,
     });
 
-    if (entry.isDirectory && !entry.name.startsWith(".")) {
+    if (entry.isDirectory) {
       const dir = await join(parent, entry.name);
       const subEntries = await readDir(dir, { baseDir: BaseDirectory.AppData });
       await processEntriesRecursively(dir, subEntries, files);
