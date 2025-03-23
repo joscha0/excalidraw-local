@@ -11,11 +11,14 @@ import {
   MoreHorizontal,
   History,
   RotateCcw,
+  Settings,
 } from "lucide-react";
+import { getVersion } from "@tauri-apps/api/app";
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -26,7 +29,7 @@ import {
   SidebarMenuSub,
 } from "@/components/ui/sidebar";
 import { useStore, FileInfo, directoryName } from "@/lib/store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 
 import { FileHistory } from "./file-history";
@@ -41,6 +44,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+import { SettingsDialog } from "./settings-dialog";
 
 export function AppSidebar() {
   const {
@@ -70,6 +74,22 @@ export function AppSidebar() {
   const [fileToMove, setFileToMove] = useState<FileInfo | null>(null);
   const [targetFolder, setTargetFolder] = useState<FileInfo | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const version = await getVersion();
+        setAppVersion(version);
+      } catch (error) {
+        console.error("Failed to get app version:", error);
+        setAppVersion("unknown");
+      }
+    };
+
+    fetchVersion();
+  }, []);
 
   const handleCreateFile = () => {
     if (!isCreating) {
@@ -546,6 +566,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+        />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+
+        <div className="mt-2 text-sm text-muted-foreground text-center">
+          <p>Excalidraw Local v{appVersion}</p>
+          <p>Made with ❤️ by joscha0</p>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

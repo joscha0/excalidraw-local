@@ -29,6 +29,18 @@ interface FileHistoryEntry {
   author: string;
 }
 
+interface GitConfig {
+  remoteUrl: string;
+  username: string;
+  email: string;
+}
+
+interface AutoCommitConfig {
+  enabled: boolean;
+  interval: number; // minutes
+  message: string;
+}
+
 interface AppState {
   files: FileInfo[];
   currentFile: FileInfo | null;
@@ -38,6 +50,8 @@ interface AppState {
   theme: Theme;
   pendingChanges: boolean;
   lastCommitTime: number;
+  gitConfig: GitConfig;
+  autoCommitConfig: AutoCommitConfig;
 
   initialize: () => Promise<void>;
   loadFiles: () => Promise<void>;
@@ -54,6 +68,9 @@ interface AppState {
   deleteFile: (file: FileInfo) => Promise<void>;
   createFolder: (name: string, parentPath?: string) => Promise<void>;
   moveFile: (file: FileInfo, targetFolderPath: string | null) => Promise<void>;
+  updateGitConfig: (config: GitConfig) => Promise<void>;
+  updateAutoCommitConfig: (config: AutoCommitConfig) => Promise<void>;
+  testGitConnection: (config: GitConfig) => Promise<boolean>;
 }
 
 export const directoryName = "excalidraw-local";
@@ -64,7 +81,7 @@ async function processEntriesRecursively(
   files: FileInfo[]
 ) {
   for (const entry of dirEntries) {
-    if (entry.name.startsWith(".")) {
+    if (entry.name.startsWith(".") || entry.name === "settings.json") {
       continue; // Skip hidden files
     }
     // Add the current entry to the entries array
@@ -92,6 +109,16 @@ export const useStore = create<AppState>((set, get) => ({
   theme: "light",
   pendingChanges: false,
   lastCommitTime: Date.now(),
+  gitConfig: {
+    remoteUrl: "",
+    username: "",
+    email: "",
+  },
+  autoCommitConfig: {
+    enabled: false,
+    interval: 10, // default 10 minutes
+    message: "Updated drawing",
+  },
   setTheme: (theme) => set({ theme }),
   toggleTheme: () =>
     set((state) => ({
@@ -110,6 +137,23 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       await get().initializeGit();
+
+      // Load saved settings if they exist
+      try {
+        const settingsPath = await join(directoryName, "settings.json");
+        const settingsContent = await readTextFile(settingsPath, {
+          baseDir: BaseDirectory.AppData,
+        });
+        const settings = JSON.parse(settingsContent);
+
+        set({
+          gitConfig: settings.gitConfig || get().gitConfig,
+          autoCommitConfig: settings.autoCommitConfig || get().autoCommitConfig,
+        });
+      } catch (error) {
+        // Settings file might not exist yet, using defaults
+        console.log("Using default settings:", error);
+      }
 
       set({ appReady: true });
 
@@ -317,10 +361,16 @@ export const useStore = create<AppState>((set, get) => ({
   setCurrentFile: async (file: FileInfo) => {
     try {
       // Commit pending changes on current file before switching
-      const { pendingChanges, currentFile } = get();
-      if (pendingChanges && currentFile) {
+      const { pendingChanges, currentFile, lastCommitTime, autoCommitConfig } =
+        get();
+      if (
+        autoCommitConfig.enabled &&
+        lastCommitTime + 60 * 1000 * autoCommitConfig.interval < Date.now() &&
+        pendingChanges &&
+        currentFile
+      ) {
         set({ lastCommitTime: Date.now(), pendingChanges: false });
-        await get().commitChanges("Updated drawing before switching files");
+        await get().commitChanges(autoCommitConfig.message);
       }
 
       const fileContent = await readTextFile(file.path, {
@@ -344,17 +394,20 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateElements: async (elements: ExcalidrawElement[]) => {
     try {
-      const { currentFile, lastCommitTime } = get();
+      const { currentFile, lastCommitTime, autoCommitConfig } = get();
       if (currentFile) {
         await writeTextFile(currentFile.path, JSON.stringify(elements), {
           baseDir: BaseDirectory.AppData,
         });
         set({ elements, pendingChanges: true });
 
-        // commit after 10 minutes
-        if (lastCommitTime + 60 * 10 * 1000 < Date.now()) {
+        // Check if we should auto-commit based on settings
+        if (
+          autoCommitConfig.enabled &&
+          lastCommitTime + 60 * 1000 * autoCommitConfig.interval < Date.now()
+        ) {
           set({ lastCommitTime: Date.now(), pendingChanges: false });
-          await get().commitChanges("Updated drawing");
+          await get().commitChanges(autoCommitConfig.message);
         }
       }
     } catch (error) {
@@ -511,6 +564,90 @@ export const useStore = create<AppState>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to delete file:", error);
+      throw error;
+    }
+  },
+
+  updateGitConfig: async (config: GitConfig) => {
+    try {
+      set({ gitConfig: config });
+
+      // Update Git config in the repo
+      await invoke<string>("update_git_config", {
+        username: config.username,
+        email: config.email,
+      });
+
+      // If remote URL is provided, set it
+      if (config.remoteUrl) {
+        await invoke<string>("set_git_remote", {
+          url: config.remoteUrl,
+        });
+      }
+
+      // Save settings to disk
+      const settingsPath = await join(directoryName, "settings.json");
+      const settings = {
+        gitConfig: config,
+        autoCommitConfig: get().autoCommitConfig,
+      };
+
+      await writeTextFile(settingsPath, JSON.stringify(settings, null, 2), {
+        baseDir: BaseDirectory.AppData,
+      });
+    } catch (error) {
+      console.error("Failed to update Git config:", error);
+      throw error;
+    }
+  },
+
+  updateAutoCommitConfig: async (config: AutoCommitConfig) => {
+    try {
+      set({ autoCommitConfig: config });
+
+      // Save settings to disk
+      const settingsPath = await join(directoryName, "settings.json");
+      const settings = {
+        gitConfig: get().gitConfig,
+        autoCommitConfig: config,
+      };
+
+      await writeTextFile(settingsPath, JSON.stringify(settings, null, 2), {
+        baseDir: BaseDirectory.AppData,
+      });
+
+      // Update the commit timer based on new settings
+      const { pendingChanges, currentFile } = get();
+
+      // If auto-commit is enabled and we have pending changes,
+      // we should reset the timer based on the new interval
+      if (config.enabled && pendingChanges && currentFile) {
+        set({
+          lastCommitTime: Date.now() - 60 * 1000 * config.interval + 60 * 1000,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update auto-commit config:", error);
+      throw error;
+    }
+  },
+
+  testGitConnection: async (config: GitConfig) => {
+    try {
+      if (!config.remoteUrl) {
+        throw new Error("No remote URL provided");
+      }
+
+      // Test the Git connection
+      const result = await invoke<boolean>("test_git_connection", {
+        url: config.remoteUrl,
+        username: config.username,
+        email: config.email,
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Failed to test Git connection:", error);
       throw error;
     }
   },
