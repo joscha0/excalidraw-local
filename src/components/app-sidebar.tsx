@@ -8,6 +8,8 @@ import {
   Folder,
   FolderPlus,
   Move,
+  MoreHorizontal,
+  History,
 } from "lucide-react";
 
 import {
@@ -17,6 +19,7 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -25,6 +28,12 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 
 import { FileHistory } from "./file-history";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 export function AppSidebar() {
   const {
@@ -233,69 +242,34 @@ export function AppSidebar() {
           </div>
         ) : (
           <>
-            <div className="flex w-full items-center">
-              <SidebarMenuButton asChild>
-                <Button
-                  variant={
-                    !item.isFolder && currentFile?.path === item.path
-                      ? "secondary"
-                      : "ghost"
+            <SidebarMenuButton asChild>
+              <Button
+                variant={
+                  !item.isFolder && currentFile?.path === item.path
+                    ? "secondary"
+                    : "ghost"
+                }
+                className="flex-1 justify-start mb-1 font-normal"
+                onClick={() => {
+                  if (!item.isFolder) {
+                    setCurrentFile(item);
                   }
-                  className="flex-1 justify-start mb-1 font-normal"
-                  onClick={() => {
-                    if (!item.isFolder) {
-                      setCurrentFile(item);
-                    }
-                    // Could add folder expansion logic here
-                  }}
-                >
-                  {item.isFolder ? (
-                    <Folder className="mr-2 h-4 w-4" />
-                  ) : (
-                    <FileText className="mr-2 h-4 w-4" />
-                  )}
-                  {item.isFolder
-                    ? item.name
-                    : item.name.replace(".excalidraw", "")}
-                </Button>
-              </SidebarMenuButton>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleStartRename(item)}
+                  // Could add folder expansion logic here
+                }}
               >
-                <Edit2 className="h-4 w-4" />
+                {item.isFolder ? (
+                  <Folder className="mr-2 h-4 w-4" />
+                ) : (
+                  <FileText className="mr-2 h-4 w-4" />
+                )}
+                {item.isFolder
+                  ? item.name
+                  : item.name.replace(".excalidraw", "")}
               </Button>
-
-              {!item.isFolder && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleMoveFile(item)}
-                >
-                  <Move className="h-4 w-4" />
-                </Button>
-              )}
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setFileToDelete(item)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            </SidebarMenuButton>
 
             {!item.isFolder && currentFile?.path === item.path && (
-              <div className="flex justify-end w-full mt-1 mb-2">
-                <Button variant="outline" onClick={() => setHistoryOpen(true)}>
-                  View File History
-                </Button>
-              </div>
+              <div className="flex justify-end w-full mt-1 mb-2"></div>
             )}
           </>
         )}
@@ -327,6 +301,37 @@ export function AppSidebar() {
           </div>
         )}
 
+        {fileToRename?.path !== item.path && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuAction>
+                <MoreHorizontal />
+              </SidebarMenuAction>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="start">
+              {!item.isFolder && (
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                  <History className="h-4 w-4" />
+                  <span>View History</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleStartRename(item)}>
+                <Edit2 className="h-4 w-4" />
+                <span>Edit Name</span>
+              </DropdownMenuItem>
+              {!item.isFolder && (
+                <DropdownMenuItem onClick={() => handleMoveFile(item)}>
+                  <Move className="h-4 w-4" />
+                  <span>Move</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setFileToDelete(item)}>
+                <Trash2 className="h-4 w-4" />
+                <span>Delete</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {/* Render subfolders and files recursively */}
         {item.isFolder && (
           <div className="pl-4 mt-1">
