@@ -64,8 +64,6 @@ async function processEntriesRecursively(
   files: FileInfo[]
 ) {
   for (const entry of dirEntries) {
-    console.log(`Entry: ${entry.name}`);
-
     if (entry.name.startsWith(".")) {
       continue; // Skip hidden files
     }
@@ -128,8 +126,6 @@ export const useStore = create<AppState>((set, get) => ({
         baseDir: BaseDirectory.AppData,
       });
       await processEntriesRecursively(directoryName, entriesFirst, files);
-
-      console.log("Loaded entries:", files);
 
       set({ files: files });
     } catch (error) {
