@@ -453,7 +453,9 @@ export function AppSidebar() {
 
                     <div className="max-h-60 overflow-y-auto mb-4 border rounded p-2">
                       <div
-                        className="p-2 hover:bg-muted rounded cursor-pointer"
+                        className={`p-2 hover:bg-muted rounded cursor-pointer ${
+                          targetFolder === null ? "bg-muted" : ""
+                        }`}
                         onClick={() => setTargetFolder(null)}
                       >
                         Root folder
