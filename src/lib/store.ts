@@ -143,6 +143,20 @@ export const useStore = create<AppState>((set, get) => ({
         ? `${parentPath}/${name}`
         : `${directoryName}/${name}`;
 
+      // Check if a folder with this name already exists
+      const folderExists = get().files.some(
+        (file) =>
+          file.isFolder &&
+          file.parentPath === (parentPath || directoryName) &&
+          file.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (folderExists) {
+        throw new Error(
+          `A folder named "${name}" already exists at this location`
+        );
+      }
+
       await mkdir(folderPath, {
         baseDir: BaseDirectory.AppData,
         recursive: true,
@@ -152,15 +166,22 @@ export const useStore = create<AppState>((set, get) => ({
         name,
         path: folderPath,
         isFolder: true,
-        parentPath: parentPath || null,
+        parentPath: parentPath || directoryName,
       };
 
-      // Update files list with the new folder
-      set((state) => ({
-        files: [...state.files, newFolder],
-      }));
+      // Update files list with the new folder and trigger state refresh
+      set((state) => {
+        const updatedFiles = [...state.files, newFolder];
+        return {
+          files: updatedFiles,
+        };
+      });
+
+      // Force a refresh of the file list to ensure UI is updated
+      await get().loadFiles();
     } catch (error) {
       console.error("Failed to create folder:", error);
+      throw error;
     }
   },
 
