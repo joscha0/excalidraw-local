@@ -434,11 +434,19 @@ export const useStore = create<AppState>((set, get) => ({
 
   commitChanges: async (message: string) => {
     try {
-      const result = await invoke<string>("commit_all_changes", {
-        message,
-      });
+      const result = await invoke<string>("commit_all_changes", { message });
       console.log(result);
       set({ pendingChanges: false });
+
+      const { gitConfig } = get();
+      if (gitConfig.remoteUrl) {
+        try {
+          const pushResult = await invoke<string>("push_to_remote");
+          console.log(pushResult);
+        } catch (pushError) {
+          console.error("Failed to push to remote:", pushError);
+        }
+      }
     } catch (error) {
       console.error("Failed to commit changes:", error);
       throw error;

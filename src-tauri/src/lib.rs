@@ -181,6 +181,66 @@ fn restore_version(app_handle: AppHandle, file_path: String, commit_id: String) 
     Ok("Version restored successfully".to_string())
 }
 
+
+
+#[tauri::command]
+fn set_git_remote(app_handle: AppHandle, url: String) -> Result<String, String> {
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let repo_path = app_data.join("excalidraw-local");
+    
+    let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
+    match repo.find_remote("origin") {
+        Ok(_) => repo.remote_set_url("origin", &url).map_err(|e| format!("Failed to update remote URL: {}", e))?,
+        Err(_) => { repo.remote("origin", &url).map_err(|e| format!("Failed to create remote: {}", e))?; }
+    }
+    
+    Ok("Git remote set successfully".to_string())
+}
+
+#[tauri::command]
+fn push_to_remote(app_handle: AppHandle) -> Result<String, String> {
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let repo_path = app_data.join("excalidraw-local");
+    
+    let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
+    let mut callbacks = git2::RemoteCallbacks::new();
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+    
+    let mut remote = repo.find_remote("origin").map_err(|e| format!("Failed to find remote 'origin': {}", e))?;
+    remote.push(&["refs/heads/master:refs/heads/master"], Some(&mut push_options))
+        .map_err(|e| format!("Failed to push to remote: {}", e))?;
+    
+    Ok("Successfully pushed to remote".to_string())
+}
+
+#[tauri::command]
+fn test_git_connection(app_handle: AppHandle, url: String, username: String, email: String) -> Result<bool, String> {
+    let app_data = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+    let repo_path = app_data.join("excalidraw-local");
+    
+    let repo = Repository::open(repo_path).map_err(|e| format!("Failed to open repository: {}", e))?;
+    let mut config = repo.config().map_err(|e| format!("Failed to get config: {}", e))?;
+    
+    config.set_str("user.name", &username).map_err(|e| format!("Failed to set username: {}", e))?;
+    config.set_str("user.email", &email).map_err(|e| format!("Failed to set email: {}", e))?;
+    
+    let mut remote = match repo.find_remote("origin") {
+        Ok(remote) => remote,
+        Err(_) => repo.remote("origin", &url).map_err(|e| format!("Failed to create remote: {}", e))?,
+    };
+    
+    let result = remote.connect(git2::Direction::Fetch);
+    if repo.find_remote("origin").is_err() {
+        repo.remote_delete("origin").ok();
+    }
+    
+    match result {
+        Ok(_) => Ok(true),
+        Err(e) => Err(format!("Failed to connect to remote: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -188,9 +248,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             init_git_repo,
-            commit_all_changes, // Add the new function
+            commit_all_changes,
             get_file_history,
-            restore_version
+            restore_version,
+            set_git_remote,
+            push_to_remote,
+            test_git_connection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
