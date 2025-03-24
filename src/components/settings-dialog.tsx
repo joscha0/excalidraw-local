@@ -34,7 +34,12 @@ import {
 import { CopyButton } from "./ui/copy-button";
 
 const gitConfigSchema = z.object({
-  remoteUrl: z.string().url("Please enter a valid URL").or(z.literal("")),
+  remoteUrl: z
+    .string()
+    .refine(
+      (val) => val === "" || val.match(/^git@/) !== null,
+      "Please enter a valid SSH Git URL (git@github.com:user/repo.git)"
+    ),
   username: z.string(),
   email: z.string().email("Please enter a valid email address"),
   sshKeyPath: z.string().optional(),
@@ -191,7 +196,7 @@ export function SettingsDialog({
                       <FormLabel>Git Remote URL</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="https://github.com/user/repo.git"
+                          placeholder="git@github.com:user/repo.git"
                           {...field}
                         />
                       </FormControl>
@@ -243,7 +248,11 @@ export function SettingsDialog({
                       <FormLabel>SSH Key Path</FormLabel>
                       <div className="flex gap-2">
                         <FormControl>
-                          <Input placeholder="~/.ssh/id_ed25519" {...field} />
+                          <Input
+                            disabled
+                            placeholder="~/.ssh/id_ed25519"
+                            {...field}
+                          />
                         </FormControl>
                         <Button
                           type="button"

@@ -669,11 +669,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   generateSshKey: async (email: string) => {
     try {
-      const keyPath = `$/.ssh/excalidraw_deploy_key`;
-      const result = await invoke<string>("generate_ssh_key", {
-        email,
-      });
-      return { publicKey: result, keyPath };
+      const [publicKey, keyPath] = await invoke<[string, string]>(
+        "generate_ssh_key",
+        {
+          email,
+        }
+      );
+      return { publicKey, keyPath };
     } catch (error) {
       console.error("Failed to generate SSH key:", error);
       throw error;
