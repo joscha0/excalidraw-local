@@ -601,29 +601,12 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       set({ gitConfig: config });
 
-      // Update Git config in the repo
-      await invoke<string>("update_git_config", {
-        username: config.username,
-        email: config.email,
-      });
-
-      // If remote URL is provided, set it
-      if (config.remoteUrl) {
-        await invoke<string>("set_git_remote", {
-          url: config.remoteUrl,
-        });
-      }
-
       // Save settings to disk
-      const settingsPath = await join(directoryName, "settings.json");
       const settings = {
         gitConfig: config,
         autoCommitConfig: get().autoCommitConfig,
       };
-
-      await writeTextFile(settingsPath, JSON.stringify(settings, null, 2), {
-        baseDir: BaseDirectory.AppData,
-      });
+      saveSettings(settings);
     } catch (error) {
       console.error("Failed to update Git config:", error);
       throw error;
@@ -666,6 +649,8 @@ export const useStore = create<AppState>((set, get) => ({
       if (!config.remoteUrl) {
         throw new Error("No remote URL provided");
       }
+
+      console.log("Testing Git connection with confit", config);
 
       // Test the Git connection
       const result = await invoke<boolean>("test_git_connection", {
