@@ -1,6 +1,8 @@
-# Tauri + React + Typescript
+# Excalidraw Local
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Tauri + React wrapper for Excalidraw with local files and folders and git version controll.
+
+<img width="1475" alt="Screenshot 2025-03-24 at 01 57 00" src="https://github.com/user-attachments/assets/d828048d-bc1f-4646-a151-bd6d1a3402c7" />
 
 ## Recommended IDE Setup
 
